@@ -593,6 +593,272 @@ function ZypheraxUI:CreateWindow(Config)
             Btn.MouseLeave:Connect(function() Custom:Tween(SldStroke, TweenInfo.new(0.2), { Color = Theme.Stroke }) end)
         end
 
+        function TabObj:CreateSection(Name)
+            local SecFrame = Custom:Create("Frame", {
+                Size = UDim2.new(1, -10, 0, 25),
+                BackgroundTransparency = 1,
+                Parent = TabContent
+            })
+            local Lbl = Custom:Create("TextLabel", {
+                Text = Name,
+                Font = Theme.FontBold,
+                TextSize = 14,
+                TextColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = SecFrame
+            })
+            Custom:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 1),
+                Position = UDim2.new(0, 0, 1, -2),
+                BackgroundColor3 = Theme.Stroke,
+                BorderSizePixel = 0,
+                Parent = SecFrame
+            })
+        end
+
+        function TabObj:CreateLabel(Text)
+            local LblFrame = Custom:Create("Frame", {
+                Size = UDim2.new(1, -10, 0, 20),
+                BackgroundTransparency = 1,
+                Parent = TabContent
+            })
+            Custom:Create("TextLabel", {
+                Text = Text,
+                Font = Theme.FontRegular,
+                TextSize = 13,
+                TextColor3 = Theme.TextMuted,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = LblFrame
+            })
+            
+            local LblObj = {}
+            function LblObj:CreateColorPicker(Config)
+                local Name = Config.Name or "Color"
+                local Callback = Config.Callback or function() end
+                
+                local CPFrame = Custom:Create("Frame", {
+                    Size = UDim2.new(1, -10, 0, 38),
+                    BackgroundColor3 = Theme.Surface,
+                    Parent = TabContent
+                })
+                Custom:ApplyCorner(CPFrame)
+                local CPStroke = Custom:ApplyStroke(CPFrame)
+                
+                Custom:Create("TextLabel", {
+                    Text = Name,
+                    Font = Theme.FontRegular,
+                    TextSize = 13,
+                    TextColor3 = Theme.Text,
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0, 15, 0, 0),
+                    Size = UDim2.new(1, -60, 1, 0),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = CPFrame
+                })
+                
+                local Display = Custom:Create("Frame", {
+                    Size = UDim2.new(0, 30, 0, 20),
+                    Position = UDim2.new(1, -45, 0.5, -10),
+                    BackgroundColor3 = Config.Default or Color3.fromRGB(255, 255, 255),
+                    Parent = CPFrame
+                })
+                Custom:ApplyCorner(Display, UDim.new(0, 4))
+                
+                local Btn = Custom:Create("TextButton", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    Parent = CPFrame
+                })
+                
+                Btn.MouseButton1Click:Connect(function()
+                    Callback(Display.BackgroundColor3)
+                end)
+                
+                Btn.MouseEnter:Connect(function() Custom:Tween(CPStroke, TweenInfo.new(0.2), { Color = Theme.StrokeHover }) end)
+                Btn.MouseLeave:Connect(function() Custom:Tween(CPStroke, TweenInfo.new(0.2), { Color = Theme.Stroke }) end)
+            end
+            
+            return LblObj
+        end
+
+        function TabObj:CreateKeybind(Config)
+            local Name = Config.Name or "Keybind"
+            local Default = Config.Default or Enum.KeyCode.Delete
+            local Callback = Config.Callback or function() end
+            local CurrentKey = Default
+
+            local KeyFrame = Custom:Create("Frame", {
+                Size = UDim2.new(1, -10, 0, 38),
+                BackgroundColor3 = Theme.Surface,
+                Parent = TabContent
+            })
+            Custom:ApplyCorner(KeyFrame)
+            local KeyStroke = Custom:ApplyStroke(KeyFrame)
+
+            Custom:Create("TextLabel", {
+                Text = Name,
+                Font = Theme.FontRegular,
+                TextSize = 13,
+                TextColor3 = Theme.Text,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 15, 0, 0),
+                Size = UDim2.new(1, -60, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = KeyFrame
+            })
+
+            local BtnFrame = Custom:Create("Frame", {
+                Size = UDim2.new(0, 80, 0, 24),
+                Position = UDim2.new(1, -95, 0.5, -12),
+                BackgroundColor3 = Theme.Surface2,
+                Parent = KeyFrame
+            })
+            Custom:ApplyCorner(BtnFrame, UDim.new(0, 4))
+            local BtnLbl = Custom:Create("TextLabel", {
+                Text = CurrentKey.Name,
+                Font = Theme.FontBold,
+                TextSize = 12,
+                TextColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                Parent = BtnFrame
+            })
+            
+            local Btn = Custom:Create("TextButton", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "",
+                Parent = KeyFrame
+            })
+
+            local Binding = false
+            Btn.MouseButton1Click:Connect(function()
+                Binding = true
+                BtnLbl.Text = "..."
+                Custom:Tween(KeyStroke, TweenInfo.new(0.2), { Color = Theme.Accent })
+            end)
+
+            UserInputService.InputBegan:Connect(function(input)
+                if Binding and input.UserInputType == Enum.UserInputType.Keyboard then
+                    Binding = false
+                    CurrentKey = input.KeyCode
+                    BtnLbl.Text = CurrentKey.Name
+                    Custom:Tween(KeyStroke, TweenInfo.new(0.2), { Color = Theme.Stroke })
+                elseif not Binding and input.KeyCode == CurrentKey then
+                    Callback(CurrentKey)
+                end
+            end)
+            
+            Btn.MouseEnter:Connect(function() if not Binding then Custom:Tween(KeyStroke, TweenInfo.new(0.2), { Color = Theme.StrokeHover }) end end)
+            Btn.MouseLeave:Connect(function() if not Binding then Custom:Tween(KeyStroke, TweenInfo.new(0.2), { Color = Theme.Stroke }) end end)
+        end
+
+        function TabObj:CreateDropdown(Config)
+            local Name = Config.Name or "Dropdown"
+            local Items = Config.Items or {}
+            local Callback = Config.Callback or function() end
+            local DropdownOpen = false
+            local Multi = Config.Multi or false
+
+            local DropFrame = Custom:Create("Frame", {
+                Size = UDim2.new(1, -10, 0, 38),
+                BackgroundColor3 = Theme.Surface,
+                ClipsDescendants = true,
+                Parent = TabContent
+            })
+            Custom:ApplyCorner(DropFrame)
+            local DropStroke = Custom:ApplyStroke(DropFrame)
+
+            local DropLbl = Custom:Create("TextLabel", {
+                Text = Name .. " : None",
+                Font = Theme.FontRegular,
+                TextSize = 13,
+                TextColor3 = Theme.Text,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 15, 0, 0),
+                Size = UDim2.new(1, -30, 0, 38),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = DropFrame
+            })
+
+            local Btn = Custom:Create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 38),
+                BackgroundTransparency = 1,
+                Text = "",
+                Parent = DropFrame
+            })
+
+            local ItemContainer = Custom:Create("Frame", {
+                Size = UDim2.new(1, -20, 0, 0),
+                Position = UDim2.new(0, 10, 0, 38),
+                BackgroundTransparency = 1,
+                Parent = DropFrame
+            })
+            Custom:Create("UIListLayout", {
+                Parent = ItemContainer, Padding = UDim.new(0, 2)
+            })
+            
+            local SelectedItems = Config.Default or (Multi and {} or nil)
+            
+            local function RefreshItems()
+                for _, v in pairs(ItemContainer:GetChildren()) do
+                    if v:IsA("TextButton") then v:Destroy() end
+                end
+                
+                local TotalHeight = 0
+                for _, item in ipairs(Items) do
+                    local ItemBtn = Custom:Create("TextButton", {
+                        Size = UDim2.new(1, 0, 0, 25),
+                        BackgroundColor3 = Theme.Surface2,
+                        Text = item,
+                        Font = Theme.FontRegular,
+                        TextSize = 12,
+                        TextColor3 = Theme.TextMuted,
+                        Parent = ItemContainer
+                    })
+                    Custom:ApplyCorner(ItemBtn, UDim.new(0, 4))
+                    
+                    ItemBtn.MouseEnter:Connect(function() Custom:Tween(ItemBtn, TweenInfo.new(0.2), { TextColor3 = Theme.Accent }) end)
+                    ItemBtn.MouseLeave:Connect(function() Custom:Tween(ItemBtn, TweenInfo.new(0.2), { TextColor3 = Theme.TextMuted }) end)
+                    
+                    ItemBtn.MouseButton1Click:Connect(function()
+                        if Multi then
+                            if table.find(SelectedItems, item) then
+                                table.remove(SelectedItems, table.find(SelectedItems, item))
+                            else
+                                table.insert(SelectedItems, item)
+                            end
+                            DropLbl.Text = Name .. " : " .. table.concat(SelectedItems, ", ")
+                            Callback(SelectedItems)
+                        else
+                            DropLbl.Text = Name .. " : " .. item
+                            DropdownOpen = false
+                            Custom:Tween(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.new(1, -10, 0, 38) })
+                            Callback(item)
+                        end
+                    end)
+                    TotalHeight = TotalHeight + 27
+                end
+                ItemContainer.Size = UDim2.new(1, -20, 0, TotalHeight)
+                return TotalHeight
+            end
+
+            Btn.MouseButton1Click:Connect(function()
+                DropdownOpen = not DropdownOpen
+                local Height = RefreshItems()
+                if DropdownOpen then
+                    Custom:Tween(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.new(1, -10, 0, 38 + Height + 10) })
+                else
+                    Custom:Tween(DropFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.new(1, -10, 0, 38) })
+                end
+            end)
+        end
+
         return TabObj
     end
 
