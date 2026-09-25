@@ -7,7 +7,19 @@ local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualUser = game:GetService("VirtualUser")
+-- VirtualUser wrapped safely: not all executors/games allow it
+local VirtualUser = nil
+pcall(function() VirtualUser = game:GetService("VirtualUser") end)
+
+-- Safe gethui wrapper for all executors
+local function GetCore()
+    if RunService:IsStudio() then return Player.PlayerGui end
+    local ok, hub = pcall(function() return gethui() end)
+    if ok and hub then return hub end
+    local ok2, cg = pcall(function() return cloneref(game:GetService("CoreGui")) end)
+    if ok2 and cg then return cg end
+    return game:GetService("CoreGui")
+end
 
 -- // THEME (Blended Lyapos & Airflow Aesthetics) \\ --
 local Theme = {
@@ -67,11 +79,19 @@ local Custom = {} do
     end
 
     function Custom:EnabledAFK()
-        if not Player then return end
-        Player.Idled:Connect(function()
-            VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-            task.wait(1)
-            VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        -- Run in a protected task so it NEVER crashes the library load
+        task.spawn(function()
+            if not Player then return end
+            if not VirtualUser then return end -- service unavailable, skip safely
+            local ok = pcall(function()
+                Player.Idled:Connect(function()
+                    pcall(function()
+                        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                        task.wait(1)
+                        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                    end)
+                end)
+            end)
         end)
     end
 
@@ -140,7 +160,7 @@ function ZypheraxUI:Notify(Config)
     local Content = Config.Content or "Message..."
     local Duration = Config.Duration or 5
     
-    local Core = RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui"))
+    local Core = GetCore()
     local ScreenGui = Core:FindFirstChild("ZypheraxNotifs")
     if not ScreenGui then
         ScreenGui = Custom:Create("ScreenGui", { Name = "ZypheraxNotifs", ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = Core })
@@ -219,7 +239,7 @@ function ZypheraxUI:CreateWindow(Config)
     local Description = Config.Description or "Enterprise Edition"
     local SizeUi = Config.Size or UDim2.fromOffset(600, 400)
 
-    local Core = RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui"))
+    local Core = GetCore()
     local ScreenGui = Custom:Create("ScreenGui", { Name = "ZypheraxApp", ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = Core })
 
     local DropShadow = Custom:Create("ImageLabel", {
