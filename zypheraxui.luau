@@ -197,45 +197,91 @@ end
 -- Enable Anti-AFK safely
 ZypheraxUI:EnableAntiAFK()
 
--- // FLOATING CIRCLE TOGGLE BUTTON (Speed Hub X Style Minimize Icon) \\ --
+-- // FLOATING CIRCLE TOGGLE BUTTON \\ --
 local FloatingToggleGui = nil
-local FloatingButton = nil
+local FloatingButton    = nil
+local FloatingContainer = nil
 
 local function EnsureFloatingButton(onToggleWindow)
-    if FloatingButton and FloatingButton.Parent then return FloatingButton end
+    if FloatingContainer and FloatingContainer.Parent then return FloatingButton end
 
     FloatingToggleGui = U.New("ScreenGui", {
-        Name = "ZypheraxFloatingToggle",
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        DisplayOrder = 9999,
-        ResetOnSpawn = false,
-        Parent = GetCore()
+        Name            = "ZypheraxFloatingToggle",
+        ZIndexBehavior  = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder    = 9999,
+        ResetOnSpawn    = false,
+        Parent          = GetCore()
     })
 
-    -- Draggable Floating Circular Button
+    -- Glow wrapper (larger, behind button — not clipped so glow shows)
+    local glowFrame = U.New("Frame", {
+        Name                  = "GlowWrapper",
+        Size                  = UDim2.new(0, 76, 0, 76),
+        Position              = UDim2.new(0.05, -12, 0.15, -12),
+        BackgroundTransparency = 1,
+        Visible               = false,
+        ZIndex                = 8,
+        Parent                = FloatingToggleGui
+    })
+    local glowImg = U.New("ImageLabel", {
+        Image                 = "rbxassetid://6014261993",
+        ImageColor3           = T.Accent,
+        ImageTransparency     = 0.72,
+        BackgroundTransparency = 1,
+        Size                  = UDim2.new(1, 0, 1, 0),
+        ScaleType             = Enum.ScaleType.Slice,
+        SliceCenter           = Rect.new(49, 49, 450, 450),
+        ZIndex                = 8,
+        Parent                = glowFrame
+    })
+
+    -- Actual clickable button (clips itself so inner elements stay inside circle)
     FloatingButton = U.New("ImageButton", {
-        Name = "FloatingCircleBtn",
-        Size = UDim2.new(0, 52, 0, 52),
-        Position = UDim2.new(0.05, 0, 0.15, 0),
-        BackgroundColor3 = T.Background2,
-        BackgroundTransparency = 0.15,
-        Image = "rbxassetid://136890595976124", -- Default Speed Hub / Zypherax Icon
-        ImageColor3 = Color3.fromRGB(255, 255, 255),
-        Visible = false,
-        ZIndex = 10,
-        Parent = FloatingToggleGui
+        Name                  = "FloatingCircleBtn",
+        Size                  = UDim2.new(0, 52, 0, 52),
+        Position              = UDim2.new(0.05, 0, 0.15, 0),
+        BackgroundColor3      = T.Background2,
+        BackgroundTransparency = 0.08,
+        Image                 = "",
+        Visible               = false,
+        ZIndex                = 10,
+        ClipsDescendants      = true,
+        Parent                = FloatingToggleGui
     })
     U.Corner(FloatingButton, UDim.new(1, 0))
-    local fStroke = U.Stroke(FloatingButton, T.Accent, 1.5, 0.2)
-    U.Glow(FloatingButton, T.Accent, 0.75)
+    U.Stroke(FloatingButton, T.Accent, 1.5, 0)
 
-    -- Draggable functionality
+    -- Icon inside button
+    U.New("TextLabel", {
+        Text                  = "Z",
+        Font                  = T.Font,
+        TextSize              = 20,
+        TextColor3            = T.Accent,
+        BackgroundTransparency = 1,
+        Size                  = UDim2.new(1, 0, 1, 0),
+        ZIndex                = 11,
+        Parent                = FloatingButton
+    })
+
+    -- Sync glow position whenever button moves
+    local function syncGlow()
+        glowFrame.Position = UDim2.new(
+            FloatingButton.Position.X.Scale,
+            FloatingButton.Position.X.Offset - 12,
+            FloatingButton.Position.Y.Scale,
+            FloatingButton.Position.Y.Offset - 12
+        )
+    end
+    syncGlow()
+
+    -- Draggable
     local dragging, dragStart, startPos = false, nil, nil
     FloatingButton.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or
+           inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
             dragStart = inp.Position
-            startPos = FloatingButton.Position
+            startPos  = FloatingButton.Position
             local c
             c = inp.Changed:Connect(function()
                 if inp.UserInputState == Enum.UserInputState.End then
@@ -245,19 +291,42 @@ local function EnsureFloatingButton(onToggleWindow)
             end)
         end
     end)
-
     FloatingButton.InputChanged:Connect(function(inp)
-        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or
+                         inp.UserInputType == Enum.UserInputType.Touch) then
             local d = inp.Position - dragStart
-            FloatingButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            FloatingButton.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+            syncGlow()
         end
     end)
 
-    FloatingButton.MouseButton1Click:Connect(function()
-        U.Ripple(FloatingButton, Player:GetMouse().X, Player:GetMouse().Y)
-        onToggleWindow(true)
+    -- Click to restore
+    local hasMoved = false
+    local downPos  = Vector2.zero
+    FloatingButton.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+            downPos  = Vector2.new(inp.Position.X, inp.Position.Y)
+            hasMoved = false
+        end
+    end)
+    FloatingButton.InputChanged:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseMovement then
+            if (Vector2.new(inp.Position.X, inp.Position.Y) - downPos).Magnitude > 4 then
+                hasMoved = true
+            end
+        end
+    end)
+    FloatingButton.MouseButton1Up:Connect(function()
+        if not hasMoved then
+            U.Ripple(FloatingButton, Player:GetMouse().X, Player:GetMouse().Y)
+            onToggleWindow(true)
+        end
     end)
 
+    FloatingContainer = glowFrame  -- track for existence check
     return FloatingButton
 end
 
@@ -586,27 +655,69 @@ function ZypheraxUI:CreateWindow(config)
         subLbl.Position = UDim2.new(0, 42 + titleLbl.TextBounds.X + 12, 0, 0)
     end))
 
-    -- Control buttons (Close & Minimize)
-    local function makeCtrlBtn(text, posX, hoverColor)
-        local btn = U.New("TextButton", {
-            Text = text,
-            Font = T.Font,
-            TextSize = 14,
-            TextColor3 = T.TextMuted,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(0, 24, 0, 24),
-            Position = UDim2.new(1, posX, 0.5, -12),
-            AutoButtonColor = false,
-            ZIndex = 6,
-            Parent = topbar
+    -- Control buttons container (right-aligned, precise)
+    local ctrlContainer = U.New("Frame", {
+        Size                  = UDim2.new(0, 68, 0, 32),
+        Position              = UDim2.new(1, -76, 0.5, -16),
+        BackgroundTransparency = 1,
+        ZIndex                = 6,
+        Parent                = topbar
+    })
+    U.New("UIListLayout", {
+        FillDirection         = Enum.FillDirection.Horizontal,
+        HorizontalAlignment   = Enum.HorizontalAlignment.Right,
+        VerticalAlignment     = Enum.VerticalAlignment.Center,
+        Padding               = UDim.new(0, 4),
+        Parent                = ctrlContainer
+    })
+
+    local function makeCtrlBtn(symbol, hoverColor, isClose)
+        local wrap = U.New("Frame", {
+            Size                  = UDim2.new(0, 28, 0, 28),
+            BackgroundColor3      = T.Surface3,
+            BackgroundTransparency = 0.4,
+            ZIndex                = 6,
+            Parent                = ctrlContainer
         })
-        trackConnection(btn.MouseEnter:Connect(function() U.Tween(btn, 0.15, { TextColor3 = hoverColor }) end))
-        trackConnection(btn.MouseLeave:Connect(function() U.Tween(btn, 0.2, { TextColor3 = T.TextMuted }) end))
+        U.Corner(wrap, T.CornerSm)
+        local wStroke = U.Stroke(wrap, T.Stroke, 1, 0)
+
+        local lbl = U.New("TextLabel", {
+            Text                  = symbol,
+            Font                  = T.Font,
+            TextSize              = 13,
+            TextColor3            = T.TextMuted,
+            BackgroundTransparency = 1,
+            Size                  = UDim2.new(1, 0, 1, 0),
+            ZIndex                = 7,
+            Parent                = wrap
+        })
+
+        local btn = U.New("TextButton", {
+            Size                  = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text                  = "",
+            AutoButtonColor       = false,
+            ZIndex                = 8,
+            Parent                = wrap
+        })
+
+        trackConnection(btn.MouseEnter:Connect(function()
+            U.Tween(wrap, 0.12, { BackgroundColor3 = hoverColor, BackgroundTransparency = 0.1 })
+            U.Tween(wStroke, 0.12, { Color = hoverColor })
+            U.Tween(lbl, 0.12, { TextColor3 = Color3.fromRGB(255,255,255) })
+        end))
+        trackConnection(btn.MouseLeave:Connect(function()
+            U.Tween(wrap, 0.2, { BackgroundColor3 = T.Surface3, BackgroundTransparency = 0.4 })
+            U.Tween(wStroke, 0.2, { Color = T.Stroke })
+            U.Tween(lbl, 0.2, { TextColor3 = T.TextMuted })
+        end))
+
         return btn
     end
 
-    local closeBtn = makeCtrlBtn("✕", -14, T.Error)
-    local minBtn   = makeCtrlBtn("−", -42, T.Warning)
+    local closeBtn = makeCtrlBtn("✕", T.Error, true)
+    local minBtn   = makeCtrlBtn("−", T.Warning, false)
 
     -- Draggable Topbar
     local dragging, dragStart, startPos = false, nil, nil
@@ -653,12 +764,18 @@ function ZypheraxUI:CreateWindow(config)
         if visible then
             gui.Enabled = true
             floatBtn.Visible = false
-            main.Size = UDim2.new(0, size.X.Offset * 0.9, 0, size.Y.Offset * 0.9)
-            U.Tween(main, 0.35, { Size = size }, Enum.EasingStyle.Quint)
+            if FloatingContainer then FloatingContainer.Visible = false end
+            main.Size = UDim2.new(0, size.X.Offset * 0.92, 0, size.Y.Offset * 0.92)
+            main.BackgroundTransparency = 1
+            U.Tween(main, 0.32, { Size = size, BackgroundTransparency = 0.15 }, Enum.EasingStyle.Quint)
         else
-            U.Tween(main, 0.25, { Size = UDim2.new(0, size.X.Offset * 0.9, 0, size.Y.Offset * 0.9) }, Enum.EasingStyle.Quint).Completed:Connect(function()
+            U.Tween(main, 0.22, {
+                Size = UDim2.new(0, size.X.Offset * 0.92, 0, size.Y.Offset * 0.92),
+                BackgroundTransparency = 1
+            }, Enum.EasingStyle.Quint).Completed:Connect(function()
                 gui.Enabled = false
                 floatBtn.Visible = true
+                if FloatingContainer then FloatingContainer.Visible = true end
             end)
         end
     end
@@ -721,6 +838,63 @@ function ZypheraxUI:CreateWindow(config)
         ZIndex = 2,
         Parent = main
     })
+
+    -- // RESIZE HANDLE (bottom-right corner drag) \\ --
+    local resizeHandle = U.New("Frame", {
+        Size     = UDim2.new(0, 18, 0, 18),
+        Position = UDim2.new(1, -18, 1, -18),
+        BackgroundColor3 = T.Stroke,
+        BackgroundTransparency = 0.4,
+        BorderSizePixel = 0,
+        ZIndex = 20,
+        Parent = main
+    })
+    U.Corner(resizeHandle, UDim.new(0, 3))
+    -- Diagonal lines icon
+    U.New("TextLabel", {
+        Text = "⌟", Font = T.Font, TextSize = 14,
+        TextColor3 = T.TextDim, BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0), ZIndex = 21,
+        Parent = resizeHandle
+    })
+    local resizeBtn = U.New("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+        Text = "", AutoButtonColor = false, ZIndex = 22, Parent = resizeHandle
+    })
+
+    local MIN_W, MIN_H = 460, 340
+    local resizeDragging, resizeStart, resizeOrigSize = false, nil, nil
+    trackConnection(resizeBtn.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizeDragging = true
+            resizeStart    = Vector2.new(inp.Position.X, inp.Position.Y)
+            resizeOrigSize = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
+            local c
+            c = inp.Changed:Connect(function()
+                if inp.UserInputState == Enum.UserInputState.End then
+                    resizeDragging = false
+                    if c then c:Disconnect() end
+                end
+            end)
+        end
+    end))
+    trackConnection(UIS.InputChanged:Connect(function(inp)
+        if resizeDragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta    = Vector2.new(inp.Position.X, inp.Position.Y) - resizeStart
+            local newW     = math.max(MIN_W, resizeOrigSize.X + delta.X)
+            local newH     = math.max(MIN_H, resizeOrigSize.Y + delta.Y)
+            local newSize  = UDim2.fromOffset(newW, newH)
+            main.Size      = newSize
+            shadow.Size    = UDim2.new(0, newW + 70, 0, newH + 70)
+            size           = newSize
+        end
+    end))
+    trackConnection(resizeBtn.MouseEnter:Connect(function()
+        U.Tween(resizeHandle, 0.12, { BackgroundColor3 = T.Accent, BackgroundTransparency = 0.2 })
+    end))
+    trackConnection(resizeBtn.MouseLeave:Connect(function()
+        U.Tween(resizeHandle, 0.2, { BackgroundColor3 = T.Stroke, BackgroundTransparency = 0.4 })
+    end))
 
     -- // CREATE TAB / PAGE (Neverlose Double Column Grid Layout) \\ --
     function Win:CreateTab(nameOrCfg, icon)
@@ -1205,34 +1379,232 @@ function ZypheraxUI:CreateWindow(config)
             end
             Section.Dropdown = Section.CreateDropdown
 
-            -- COLORPICKER
+            -- COLORPICKER (Full HSV Panel)
             function Section:CreateColorPicker(cfg)
                 local nm      = cfg.Name or "Color"
                 local flag    = cfg.Flag
-                local default = cfg.Default or Color3.fromRGB(255, 255, 255)
+                local default = cfg.Default or Color3.fromRGB(0, 195, 255)
                 local cb      = cfg.Callback or function() end
 
-                if flag then ZypheraxUI.Flags[flag] = default end
+                local h, s, v = Color3.toHSV(default)
+                local currentColor = default
+                if flag then ZypheraxUI.Flags[flag] = currentColor end
 
+                -- Row (collapsed)
                 local base, stroke = makeBase(34)
                 local h1, h2 = U.HoverEffect(base, stroke)
                 trackConnection(h1); trackConnection(h2)
 
                 U.New("TextLabel", {
-                    Text = nm, Font = T.FontRegular, TextSize = 12, TextColor3 = T.Text, BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(1, -60, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, Parent = base
+                    Text = nm, Font = T.FontRegular, TextSize = 12, TextColor3 = T.Text,
+                    BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, 0),
+                    Size = UDim2.new(1, -60, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 6, Parent = base
                 })
 
                 local swatch = U.New("Frame", {
-                    Size = UDim2.new(0, 32, 0, 18), Position = UDim2.new(1, -42, 0.5, -9), BackgroundColor3 = default, ZIndex = 6, Parent = base
+                    Size = UDim2.new(0, 28, 0, 16), Position = UDim2.new(1, -38, 0.5, -8),
+                    BackgroundColor3 = currentColor, ZIndex = 6, Parent = base
                 })
                 U.Corner(swatch, T.CornerSm)
                 U.Stroke(swatch, T.Stroke, 1, 0)
 
-                local btn = U.New("TextButton", { Size = UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", ZIndex=7, Parent=base })
-                trackConnection(btn.MouseButton1Click:Connect(function()
-                    U.Ripple(btn, Player:GetMouse().X, Player:GetMouse().Y)
-                    cb(swatch.BackgroundColor3)
+                -- Expand toggle
+                local panelOpen = false
+                local panel = nil
+
+                local function buildHSVPanel()
+                    panel = U.New("Frame", {
+                        Size = UDim2.new(1, 0, 0, 120),
+                        BackgroundColor3 = T.Surface,
+                        BorderSizePixel = 0,
+                        ZIndex = 6,
+                        Parent = secContainer,
+                        ClipsDescendants = true
+                    })
+                    U.Corner(panel, T.CornerSm)
+                    U.Stroke(panel, T.Stroke, 1, 0)
+                    U.New("UIPadding", { PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,8), PaddingBottom = UDim.new(0,8), Parent = panel })
+
+                    -- SV field (Saturation × Value 2D square)
+                    local svField = U.New("ImageButton", {
+                        Size = UDim2.new(0, 80, 0, 80),
+                        Position = UDim2.new(0, 0, 0, 0),
+                        BackgroundColor3 = Color3.fromHSV(h, 1, 1),
+                        AutoButtonColor = false,
+                        ZIndex = 7,
+                        Parent = panel
+                    })
+                    U.Corner(svField, T.CornerSm)
+                    -- White to transparent gradient (saturation)
+                    U.New("UIGradient", {
+                        Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1)),
+                        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)}),
+                        Rotation = 0,
+                        Parent = svField
+                    })
+                    -- Transparent to black gradient (value)
+                    local valGrad = U.New("Frame", {
+                        Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+                        ZIndex = 8, Parent = svField, ClipsDescendants = true
+                    })
+                    U.Corner(valGrad, T.CornerSm)
+                    U.New("UIGradient", {
+                        Color = ColorSequence.new(Color3.new(0,0,0), Color3.new(0,0,0)),
+                        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)}),
+                        Rotation = 270,
+                        Parent = valGrad
+                    })
+
+                    -- SV cursor
+                    local svCursor = U.New("Frame", {
+                        Size = UDim2.new(0, 10, 0, 10),
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.new(s, 0, 1 - v, 0),
+                        BackgroundColor3 = Color3.new(1,1,1),
+                        BorderSizePixel = 0,
+                        ZIndex = 10,
+                        Parent = svField
+                    })
+                    U.Corner(svCursor, UDim.new(1, 0))
+                    U.Stroke(svCursor, Color3.new(0,0,0), 1.5, 0)
+
+                    -- Hue bar
+                    local hueBar = U.New("ImageLabel", {
+                        Size = UDim2.new(0, 14, 0, 80),
+                        Position = UDim2.new(0, 88, 0, 0),
+                        Image = "rbxassetid://2880333002", -- rainbow hue bar
+                        BackgroundTransparency = 1,
+                        ZIndex = 7,
+                        Parent = panel
+                    })
+                    U.Corner(hueBar, T.CornerSm)
+                    U.Stroke(hueBar, T.Stroke, 1, 0)
+                    local hueBtn = U.New("TextButton", {
+                        Size = UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", ZIndex=8, Parent=hueBar
+                    })
+
+                    -- Hue cursor
+                    local hueCursor = U.New("Frame", {
+                        Size = UDim2.new(1, 4, 0, 4),
+                        Position = UDim2.new(0, -2, h, -2),
+                        BackgroundColor3 = Color3.new(1,1,1),
+                        BorderSizePixel = 0,
+                        ZIndex = 9,
+                        Parent = hueBar
+                    })
+                    U.Corner(hueCursor, UDim.new(0, 2))
+
+                    -- HEX input
+                    local function toHex(c)
+                        return string.format("#%02X%02X%02X",
+                            math.round(c.R*255), math.round(c.G*255), math.round(c.B*255))
+                    end
+
+                    local hexBox = U.New("TextBox", {
+                        Size = UDim2.new(0, 80, 0, 22),
+                        Position = UDim2.new(0, 0, 0, 88),
+                        BackgroundColor3 = T.Surface3, Text = toHex(currentColor),
+                        Font = T.Font, TextSize = 11, TextColor3 = T.Accent,
+                        PlaceholderText = "#RRGGBB", ClearTextOnFocus = false,
+                        TextXAlignment = Enum.TextXAlignment.Center,
+                        ZIndex = 7, Parent = panel
+                    })
+                    U.Corner(hexBox, T.CornerSm)
+                    U.Stroke(hexBox, T.Stroke, 1, 0)
+
+                    -- Update function
+                    local function applyColor()
+                        currentColor = Color3.fromHSV(h, s, v)
+                        swatch.BackgroundColor3 = currentColor
+                        svField.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                        svCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                        hueCursor.Position = UDim2.new(0, -2, h, -2)
+                        hexBox.Text = toHex(currentColor)
+                        if flag then ZypheraxUI.Flags[flag] = currentColor end
+                        cb(currentColor)
+                    end
+
+                    -- SV drag
+                    local svDrag = false
+                    svField.InputBegan:Connect(function(inp)
+                        if inp.UserInputType == Enum.UserInputType.MouseButton1 then svDrag = true end
+                    end)
+                    local svConn
+                    svField.InputBegan:Connect(function(inp)
+                        if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+                        svDrag = true
+                        if svConn then svConn:Disconnect() end
+                        svConn = UIS.InputChanged:Connect(function(m)
+                            if not svDrag then return end
+                            if m.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+                            local rel = svField.AbsolutePosition
+                            local sz  = svField.AbsoluteSize
+                            s = math.clamp((m.Position.X - rel.X) / sz.X, 0, 1)
+                            v = 1 - math.clamp((m.Position.Y - rel.Y) / sz.Y, 0, 1)
+                            applyColor()
+                        end)
+                    end)
+                    UIS.InputEnded:Connect(function(inp)
+                        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                            svDrag = false
+                            if svConn then svConn:Disconnect(); svConn = nil end
+                        end
+                    end)
+
+                    -- Hue drag
+                    local hueDrag = false
+                    local hueConn
+                    hueBtn.InputBegan:Connect(function(inp)
+                        if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+                        hueDrag = true
+                        if hueConn then hueConn:Disconnect() end
+                        hueConn = UIS.InputChanged:Connect(function(m)
+                            if not hueDrag then return end
+                            if m.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+                            local rel = hueBar.AbsolutePosition
+                            local sz  = hueBar.AbsoluteSize
+                            h = math.clamp((m.Position.Y - rel.Y) / sz.Y, 0, 1)
+                            applyColor()
+                        end)
+                    end)
+                    UIS.InputEnded:Connect(function(inp)
+                        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                            hueDrag = false
+                            if hueConn then hueConn:Disconnect(); hueConn = nil end
+                        end
+                    end)
+
+                    -- Hex input
+                    hexBox.FocusLost:Connect(function()
+                        local raw = hexBox.Text:gsub("#", "")
+                        if #raw == 6 then
+                            local r = tonumber(raw:sub(1,2),16)
+                            local g = tonumber(raw:sub(3,4),16)
+                            local b = tonumber(raw:sub(5,6),16)
+                            if r and g and b then
+                                h, s, v = Color3.toHSV(Color3.fromRGB(r,g,b))
+                                applyColor()
+                            end
+                        end
+                    end)
+                end
+
+                -- Toggle panel open/close
+                local toggleBtn = U.New("TextButton", {
+                    Size = UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", ZIndex=8, Parent=base
+                })
+                trackConnection(toggleBtn.MouseButton1Click:Connect(function()
+                    panelOpen = not panelOpen
+                    if panelOpen then
+                        if not panel or not panel.Parent then buildHSVPanel() end
+                        U.Tween(base, 0.2, { Size = UDim2.new(1, 0, 0, 34) })
+                    else
+                        if panel and panel.Parent then
+                            pcall(function() panel:Destroy() end)
+                            panel = nil
+                        end
+                    end
                 end))
             end
             Section.Colorpicker = Section.CreateColorPicker
