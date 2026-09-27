@@ -8,7 +8,10 @@ local Player       = Players.LocalPlayer
 local RunService   = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIS          = game:GetService("UserInputService")
-local CoreGui      = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
+local CoreGui
+pcall(function()
+    CoreGui = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
+end)
 
 -- VirtualUser: safe load (Anti-AFK)
 local VirtualUser = nil
@@ -16,10 +19,11 @@ pcall(function() VirtualUser = game:GetService("VirtualUser") end)
 
 -- // SAFE CORE GUI RESOLVER \\ --
 local function GetCore()
-    if RunService:IsStudio() then return Player.PlayerGui end
+    if RunService:IsStudio() then return Player:WaitForChild("PlayerGui") end
     local ok, h = pcall(function() return gethui() end)
     if ok and h then return h end
-    return CoreGui
+    if CoreGui then return CoreGui end
+    return Player:WaitForChild("PlayerGui")
 end
 
 -- // THEME (Neverlose / Lyapos Dark Depth + Airflow Color System) \\ --
@@ -147,6 +151,17 @@ local U = {} do
                 circle:Destroy()
             end)
         end)
+    end
+
+    function U.Divider(parent, yOffset)
+        return U.New("Frame", {
+            Size = UDim2.new(1, 0, 0, 1),
+            Position = UDim2.new(0, 0, 0, yOffset or 0),
+            BackgroundColor3 = T.Stroke,
+            BorderSizePixel = 0,
+            ZIndex = 5,
+            Parent = parent
+        })
     end
 
     function U.HoverEffect(frame, stroke)
@@ -281,7 +296,7 @@ function ZypheraxUI:Notify(config)
         Size = UDim2.new(0, 310, 0, 70),
         Position = UDim2.new(1, 20, 1, yOff),
         BackgroundColor3 = T.Surface,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.2,
         ClipsDescendants = true,
         Parent = NotifGui
     })
@@ -413,7 +428,8 @@ function ZypheraxUI:KeybindList(title)
         Size = UDim2.new(0, 180, 0, 130),
         Position = UDim2.new(0, 20, 0.4, 0),
         BackgroundColor3 = T.Background,
-        BackgroundTransparency = 0.1,
+        BackgroundTransparency = 0.2,
+        Visible = false, -- Hidden by default
         Parent = kbGui
     })
     U.Corner(frame, T.CornerSm)
@@ -422,6 +438,7 @@ function ZypheraxUI:KeybindList(title)
     local header = U.New("Frame", {
         Size = UDim2.new(1, 0, 0, 26),
         BackgroundColor3 = T.Surface,
+        BackgroundTransparency = 0.2,
         Parent = frame
     })
     U.Corner(header, T.CornerSm)
@@ -487,6 +504,7 @@ function ZypheraxUI:CreateWindow(config)
         Position = UDim2.new(0.5, 0, 0.5, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = T.Background,
+        BackgroundTransparency = 0.15,
         ClipsDescendants = true,
         ZIndex = 1,
         Parent = shadow
@@ -501,12 +519,13 @@ function ZypheraxUI:CreateWindow(config)
     local topbar = U.New("Frame", {
         Size = UDim2.new(1, 0, 0, 46),
         BackgroundColor3 = T.Surface,
+        BackgroundTransparency = 0.15,
         BorderSizePixel = 0,
         ZIndex = 3,
         Parent = main
     })
     U.Corner(topbar, T.CornerLg)
-    U.New("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0.5, 0), BackgroundColor3 = T.Surface, BorderSizePixel = 0, ZIndex = 2, Parent = topbar })
+    U.New("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0.5, 0), BackgroundColor3 = T.Surface, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 2, Parent = topbar })
     U.Divider(topbar, 45)
 
     -- Accent Dot / Logo
@@ -1251,6 +1270,9 @@ function ZypheraxUI:CreateWindow(config)
                 local btn = U.New("TextButton", { Size = UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", ZIndex=8, Parent=base })
                 local bindConn = nil
 
+                local kbEntry = { key = current, callback = function(k) cb(k) end }
+                table.insert(registeredKeybinds, kbEntry)
+
                 trackConnection(btn.MouseButton1Click:Connect(function()
                     binding = true
                     bLbl.Text = "..."
@@ -1262,6 +1284,7 @@ function ZypheraxUI:CreateWindow(config)
                         if inp.UserInputType == Enum.UserInputType.Keyboard then
                             binding = false
                             current = inp.KeyCode
+                            kbEntry.key = current
                             if flag then ZypheraxUI.Flags[flag] = current end
                             bLbl.Text = current.Name
                             U.Tween(bStroke, 0.2, { Color = T.Stroke })
@@ -1269,8 +1292,6 @@ function ZypheraxUI:CreateWindow(config)
                         end
                     end)
                 end))
-
-                table.insert(registeredKeybinds, { key = current, callback = function(k) cb(k) end })
             end
             Section.Keybind = Section.CreateKeybind
 
