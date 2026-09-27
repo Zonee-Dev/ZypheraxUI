@@ -26,46 +26,47 @@ local function GetCore()
     return Player:WaitForChild("PlayerGui")
 end
 
--- // THEME (Neverlose / Lyapos Dark Depth + Airflow Color System) \\ --
+-- // THEME (Midnight Blue Professional Palette) \\ --
 ZypheraxUI.Theme = {
-    -- Backgrounds (Neverlose Layered Depth)
-    Background       = Color3.fromRGB(12, 12, 15),
-    Background2      = Color3.fromRGB(9, 9, 11),
-    Surface          = Color3.fromRGB(16, 16, 20),
-    Surface2         = Color3.fromRGB(22, 22, 28),
-    Surface3         = Color3.fromRGB(28, 28, 36),
+    -- Backgrounds — blue-tinted midnight for depth & premium feel
+    Background       = Color3.fromRGB(11, 12, 20),    -- deep midnight blue
+    Background2      = Color3.fromRGB(8,  9,  15),    -- deepest layer
+    Surface          = Color3.fromRGB(15, 17, 28),    -- card/panel surface
+    Surface2         = Color3.fromRGB(20, 23, 37),    -- elevated surface
+    Surface3         = Color3.fromRGB(27, 30, 48),    -- topmost interactive surface
 
-    -- Accents (Cyan / Airflow / Neverlose)
-    Accent           = Color3.fromRGB(0, 195, 255),
-    AccentDark       = Color3.fromRGB(0, 120, 200),
-    AccentGradient   = Color3.fromRGB(0, 140, 220),
+    -- Accent — electric cyan, the signature Zypherax color
+    Accent           = Color3.fromRGB(0,  200, 255),  -- main electric cyan
+    AccentDark       = Color3.fromRGB(0,  90,  160),  -- deep navy variant
+    AccentGradient   = Color3.fromRGB(60, 160, 255),  -- soft blue gradient end
 
-    -- Text
-    Text             = Color3.fromRGB(240, 240, 245),
-    TextMuted        = Color3.fromRGB(140, 140, 155),
-    TextDim          = Color3.fromRGB(80, 80, 95),
+    -- Text — warm whites for readability, not harsh pure-white
+    Text             = Color3.fromRGB(230, 235, 248),  -- warm white
+    TextMuted        = Color3.fromRGB(120, 132, 160),  -- blue-grey muted
+    TextDim          = Color3.fromRGB(62,  68,  95),   -- dim placeholder
 
-    -- Outlines & Strokes
-    Stroke           = Color3.fromRGB(30, 30, 38),
-    StrokeHover      = Color3.fromRGB(60, 60, 80),
-    StrokeActive     = Color3.fromRGB(0, 195, 255),
+    -- Strokes — subtle blue-tinted borders
+    Stroke           = Color3.fromRGB(26,  30,  50),   -- default border
+    StrokeHover      = Color3.fromRGB(55,  65, 100),   -- hover border
+    StrokeActive     = Color3.fromRGB(0,  200, 255),   -- accent border
 
-    -- Status
-    Success          = Color3.fromRGB(120, 220, 150),
-    Warning          = Color3.fromRGB(240, 176, 108),
-    Error            = Color3.fromRGB(240, 100, 100),
+    -- Status colors — vibrant but not garish
+    Success          = Color3.fromRGB(72,  216, 130),  -- emerald green
+    Warning          = Color3.fromRGB(255, 185,  80),  -- warm amber
+    Error            = Color3.fromRGB(255,  80,  80),  -- clean crimson
 
-    -- Sidebar & Section Styling
-    SidebarBg        = Color3.fromRGB(10, 10, 13),
-    SectionHeader    = Color3.fromRGB(18, 18, 24),
-    SectionBg        = Color3.fromRGB(13, 13, 17),
+    -- Sidebar & Section
+    SidebarBg        = Color3.fromRGB(8,   9,  16),   -- darkest sidebar
+    SectionHeader    = Color3.fromRGB(16,  18, 30),   -- section header
+    SectionBg        = Color3.fromRGB(12,  13, 22),   -- section body
 
     -- Misc Constants
-    CornerSm         = UDim.new(0, 4),
-    CornerMd         = UDim.new(0, 6),
-    CornerLg         = UDim.new(0, 8),
-    Font             = Enum.Font.GothamBold,
-    FontRegular      = Enum.Font.Gotham,
+    CornerSm         = UDim.new(0, 6),
+    CornerMd         = UDim.new(0, 8),
+    CornerLg         = UDim.new(0, 12),
+    -- BuilderSansBold: more modern & crisp at small UI sizes vs GothamBold
+    Font             = Enum.Font.BuilderSansBold,
+    FontRegular      = Enum.Font.BuilderSans,
 }
 local T = ZypheraxUI.Theme
 
@@ -641,8 +642,10 @@ function ZypheraxUI:CreateWindow(config)
         return btn
     end
 
-    local closeBtn = makeCtrlBtn("✕", T.Error)
+    -- Order: minimize (−) first = left position, close (✕) second = right position
+    -- Matches Windows/standard convention: [−] [✕]
     local minBtn   = makeCtrlBtn("−", T.Warning)
+    local closeBtn = makeCtrlBtn("✕", T.Error)
 
     -- Window Object
     local Win = { Tabs = {}, Pages = {}, _currentTab = nil }
@@ -994,27 +997,42 @@ function ZypheraxUI:CreateWindow(config)
         Parent           = main
     })
 
-    -- // RESIZE HANDLE (bottom-right corner drag) \\ --
+    -- // RESIZE HANDLE (Modern Dotted Grip - Airflow Style) \\ --
     local resizeHandle = U.New("Frame", {
-        Size     = UDim2.new(0, 18, 0, 18),
-        Position = UDim2.new(1, -18, 1, -18),
-        BackgroundColor3 = T.Stroke,
-        BackgroundTransparency = 0.4,
-        BorderSizePixel = 0,
-        ZIndex = 20,
-        Parent = main
+        Size                   = UDim2.new(0, 16, 0, 16),
+        Position               = UDim2.new(1, -16, 1, -16),
+        BackgroundTransparency = 1,
+        ZIndex                 = 20,
+        Parent                 = main
     })
-    U.Corner(resizeHandle, UDim.new(0, 3))
-    -- Diagonal lines icon
-    U.New("TextLabel", {
-        Text = "⌟", Font = T.Font, TextSize = 14,
-        TextColor3 = T.TextDim, BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0), ZIndex = 21,
-        Parent = resizeHandle
-    })
+    
+    -- Membangun pola titik diagonal (dotted grip)
+    local dots = {}
+    local function makeDot(px, py)
+        local d = U.New("Frame", {
+            Size             = UDim2.new(0, 2, 0, 2),
+            Position         = UDim2.new(0, px, 0, py),
+            BackgroundColor3 = T.TextDim,
+            BorderSizePixel  = 0,
+            ZIndex           = 21,
+            Parent           = resizeHandle
+        })
+        U.Corner(d, UDim.new(1, 0))
+        table.insert(dots, d)
+    end
+    
+    -- Pola Segitiga Titik
+    makeDot(12, 4)
+    makeDot(8, 8); makeDot(12, 8)
+    makeDot(4, 12); makeDot(8, 12); makeDot(12, 12)
+
     local resizeBtn = U.New("TextButton", {
-        Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
-        Text = "", AutoButtonColor = false, ZIndex = 22, Parent = resizeHandle
+        Size                   = UDim2.new(1, 0, 1, 0), 
+        BackgroundTransparency = 1,
+        Text                   = "", 
+        AutoButtonColor        = false, 
+        ZIndex                 = 22, 
+        Parent                 = resizeHandle
     })
 
     local MIN_W, MIN_H = 460, 340
@@ -1045,10 +1063,14 @@ function ZypheraxUI:CreateWindow(config)
         end
     end))
     trackConnection(resizeBtn.MouseEnter:Connect(function()
-        U.Tween(resizeHandle, 0.12, { BackgroundColor3 = T.Accent, BackgroundTransparency = 0.2 })
+        for _, d in ipairs(dots) do
+            U.Tween(d, 0.12, { BackgroundColor3 = T.Accent })
+        end
     end))
     trackConnection(resizeBtn.MouseLeave:Connect(function()
-        U.Tween(resizeHandle, 0.2, { BackgroundColor3 = T.Stroke, BackgroundTransparency = 0.4 })
+        for _, d in ipairs(dots) do
+            U.Tween(d, 0.2, { BackgroundColor3 = T.TextDim })
+        end
     end))
 
     -- // CREATE TAB / PAGE (Neverlose Double Column Grid Layout) \\ --
