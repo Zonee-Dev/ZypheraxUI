@@ -63,10 +63,10 @@ ZypheraxUI.Theme = {
     -- Misc Constants
     CornerSm         = UDim.new(0, 6),
     CornerMd         = UDim.new(0, 8),
-    CornerLg         = UDim.new(0, 12),
-    -- BuilderSansBold: more modern & crisp at small UI sizes vs GothamBold
-    Font             = Enum.Font.BuilderSansBold,
-    FontRegular      = Enum.Font.BuilderSans,
+    CornerLg         = UDim.new(0, 14),
+    -- Revert ke Gotham untuk scaling yang lebih konsisten & rapi di Roblox
+    Font             = Enum.Font.GothamBold,
+    FontRegular      = Enum.Font.GothamMedium,
 }
 local T = ZypheraxUI.Theme
 
@@ -252,15 +252,27 @@ local function EnsureFloatingButton(onToggleWindow)
     U.Corner(FloatingButton, UDim.new(1, 0))
     U.Stroke(FloatingButton, T.Accent, 1.5, 0)
 
-    -- Icon inside button
-    U.New("TextLabel", {
+    -- Wadah untuk Logo di dalam bubble
+    local bLogo = U.New("ImageLabel", {
+        Name                   = "FloatingLogo",
+        Size                   = UDim2.new(1, -16, 1, -16),
+        Position               = UDim2.new(0, 8, 0, 8),
+        BackgroundTransparency = 1,
+        Image                  = "",
+        ScaleType              = Enum.ScaleType.Fit,
+        ZIndex                 = 11,
+        Parent                 = FloatingButton
+    })
+    -- Teks Fallback jika logo tidak ada
+    local bText = U.New("TextLabel", {
+        Name                  = "FloatingText",
         Text                  = "Z",
         Font                  = T.Font,
-        TextSize              = 20,
+        TextSize              = 24,
         TextColor3            = T.Accent,
         BackgroundTransparency = 1,
         Size                  = UDim2.new(1, 0, 1, 0),
-        ZIndex                = 11,
+        ZIndex                = 10,
         Parent                = FloatingButton
     })
 
@@ -553,17 +565,17 @@ function ZypheraxUI:CreateWindow(config)
         Parent = core
     })
 
-    -- Drop shadow
+    -- Drop shadow (Softer and larger blur)
     local shadow = U.New("ImageLabel", {
-        Image = "rbxassetid://6014261993",
+        Image = "rbxassetid://1316045217", -- Softer shadow asset
         ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.45,
+        ImageTransparency = 0.6,
         BackgroundTransparency = 1,
-        Size = UDim2.new(0, size.X.Offset + 70, 0, size.Y.Offset + 70),
+        Size = UDim2.new(0, size.X.Offset + 80, 0, size.Y.Offset + 80),
         Position = UDim2.new(0.5, 0, 0.5, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(49, 49, 450, 450),
+        SliceCenter = Rect.new(10, 10, 118, 118),
         ZIndex = 0,
         Parent = gui
     })
@@ -574,7 +586,7 @@ function ZypheraxUI:CreateWindow(config)
         Position = UDim2.new(0.5, 0, 0.5, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = T.Background,
-        BackgroundTransparency = 0.15,
+        BackgroundTransparency = 0.05,
         ClipsDescendants = true,
         ZIndex = 1,
         Parent = shadow
@@ -614,7 +626,7 @@ function ZypheraxUI:CreateWindow(config)
         local lbl = U.New("TextLabel", {
             Text                   = symbol,
             Font                   = T.Font,
-            TextSize               = 12,
+            TextSize               = 14,
             TextColor3             = T.TextDim,
             BackgroundTransparency = 1,
             Size                   = UDim2.new(1, 0, 1, 0),
@@ -663,6 +675,21 @@ function ZypheraxUI:CreateWindow(config)
     local floatBtn = EnsureFloatingButton(function()
         Win:ToggleVisibility(true)
     end)
+    -- Update logo inside bubble if provided
+    if floatBtn then
+        local bLogo = floatBtn:FindFirstChild("FloatingLogo")
+        local bText = floatBtn:FindFirstChild("FloatingText")
+        if logo and logo ~= "" then
+            if bLogo then
+                bLogo.Image = logo
+                bLogo.Visible = true
+            end
+            if bText then bText.Visible = false end
+        else
+            if bLogo then bLogo.Visible = false end
+            if bText then bText.Visible = true end
+        end
+    end
 
     function Win:ToggleVisibility(visible)
         if visible == nil then visible = not gui.Enabled end
@@ -746,21 +773,22 @@ function ZypheraxUI:CreateWindow(config)
         Parent           = sidebar
     })
 
-    -- Logo box (white square placeholder)
+    -- Logo box (Transparent background)
     local logoBox = U.New("Frame", {
         Size             = UDim2.new(0, 44, 0, 44),
         Position         = UDim2.new(0, 14, 0.5, -22),
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = 1,
         ZIndex           = 5,
         Parent           = sidebarHeader
     })
     U.Corner(logoBox, UDim.new(0, 6))
-    -- Logo image (loads if config.Logo provided, otherwise shows "Z")
+    -- Logo image
     local logoImg = U.New("ImageLabel", {
-        Size                   = UDim2.new(1, -6, 1, -6),
-        Position               = UDim2.new(0, 3, 0, 3),
+        Size                   = UDim2.new(1, 0, 1, 0),
+        Position               = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1,
         Image                  = logo or "",
+        ScaleType              = Enum.ScaleType.Fit,
         ZIndex                 = 6,
         Parent                 = logoBox
     })
@@ -769,7 +797,7 @@ function ZypheraxUI:CreateWindow(config)
         U.New("TextLabel", {
             Text                   = "Z",
             Font                   = T.Font,
-            TextSize               = 22,
+            TextSize               = 24,
             TextColor3             = T.Accent,
             BackgroundTransparency = 1,
             Size                   = UDim2.new(1, 0, 1, 0),
@@ -778,11 +806,11 @@ function ZypheraxUI:CreateWindow(config)
         })
     end
 
-    -- Title text (blue/bold, like in reference)
+    -- Title text
     U.New("TextLabel", {
         Text                   = string.upper(title),
         Font                   = T.Font,
-        TextSize               = 15,
+        TextSize               = 16,
         TextColor3             = T.Accent,
         BackgroundTransparency = 1,
         Position               = UDim2.new(0, 66, 0, 16),
@@ -794,7 +822,7 @@ function ZypheraxUI:CreateWindow(config)
     U.New("TextLabel", {
         Text                   = sub,
         Font                   = T.FontRegular,
-        TextSize               = 10,
+        TextSize               = 12,
         TextColor3             = T.TextMuted,
         BackgroundTransparency = 1,
         Position               = UDim2.new(0, 66, 0, 36),
@@ -997,34 +1025,25 @@ function ZypheraxUI:CreateWindow(config)
         Parent           = main
     })
 
-    -- // RESIZE HANDLE (Modern Dotted Grip - Airflow Style) \\ --
+    -- // RESIZE HANDLE (Clean Single Triangle Chevron) \\ --
     local resizeHandle = U.New("Frame", {
-        Size                   = UDim2.new(0, 16, 0, 16),
-        Position               = UDim2.new(1, -16, 1, -16),
+        Size                   = UDim2.new(0, 20, 0, 20),
+        Position               = UDim2.new(1, -20, 1, -20),
         BackgroundTransparency = 1,
         ZIndex                 = 20,
         Parent                 = main
     })
     
-    -- Membangun pola titik diagonal (dotted grip)
-    local dots = {}
-    local function makeDot(px, py)
-        local d = U.New("Frame", {
-            Size             = UDim2.new(0, 2, 0, 2),
-            Position         = UDim2.new(0, px, 0, py),
-            BackgroundColor3 = T.TextDim,
-            BorderSizePixel  = 0,
-            ZIndex           = 21,
-            Parent           = resizeHandle
-        })
-        U.Corner(d, UDim.new(1, 0))
-        table.insert(dots, d)
-    end
-    
-    -- Pola Segitiga Titik
-    makeDot(12, 4)
-    makeDot(8, 8); makeDot(12, 8)
-    makeDot(4, 12); makeDot(8, 12); makeDot(12, 12)
+    local chevron = U.New("TextLabel", {
+        Text                   = "⌟",
+        Font                   = T.Font,
+        TextSize               = 18,
+        TextColor3             = T.TextDim,
+        BackgroundTransparency = 1,
+        Size                   = UDim2.new(1, 0, 1, 0),
+        ZIndex                 = 21,
+        Parent                 = resizeHandle
+    })
 
     local resizeBtn = U.New("TextButton", {
         Size                   = UDim2.new(1, 0, 1, 0), 
@@ -1058,19 +1077,15 @@ function ZypheraxUI:CreateWindow(config)
             local newH     = math.max(MIN_H, resizeOrigSize.Y + delta.Y)
             local newSize  = UDim2.fromOffset(newW, newH)
             main.Size      = newSize
-            shadow.Size    = UDim2.new(0, newW + 70, 0, newH + 70)
+            shadow.Size    = UDim2.new(0, newW + 80, 0, newH + 80)
             size           = newSize
         end
     end))
     trackConnection(resizeBtn.MouseEnter:Connect(function()
-        for _, d in ipairs(dots) do
-            U.Tween(d, 0.12, { BackgroundColor3 = T.Accent })
-        end
+        U.Tween(chevron, 0.12, { TextColor3 = T.Accent })
     end))
     trackConnection(resizeBtn.MouseLeave:Connect(function()
-        for _, d in ipairs(dots) do
-            U.Tween(d, 0.2, { BackgroundColor3 = T.TextDim })
-        end
+        U.Tween(chevron, 0.2, { TextColor3 = T.TextDim })
     end))
 
     -- // CREATE TAB / PAGE (Neverlose Double Column Grid Layout) \\ --
