@@ -36,7 +36,7 @@ Custom:EnabledAFK()
 local function OpenClose()
   local ScreenGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
+  }, Player.PlayerGui)
 
   local Close_ImageButton = Custom:Create("ImageButton", {
     BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -168,7 +168,7 @@ function Zypherax_Library:SetNotification(Config)
 
   local NotificationGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
+  }, Player.PlayerGui)
 
   local NotificationLayout = Custom:Create("Frame", {
     AnchorPoint = Vector2.new(1, 1),
@@ -385,7 +385,7 @@ function Zypherax_Library:CreateWindow(Config)
 
   local ZypheraxHubGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
+  }, Player.PlayerGui)
 
   local DropShadowHolder = Custom:Create("Frame", {
     BackgroundTransparency = 1,
@@ -1245,7 +1245,7 @@ function Zypherax_Library:CreateWindow(Config)
       function Item:AddButton(Config)
         local Title = Config[1] or Config.Title or ""
         local Content = Config[2] or Config.Content or ""
-        local Icon = Config[3] or Config.Icon or "rbxassetid://106764279090045"
+        local Icon = Config[3] or Config.Icon or ""
         local Callback = Config[4] or Config.Callback or function() end
         local Funcs_Button = {}
 
