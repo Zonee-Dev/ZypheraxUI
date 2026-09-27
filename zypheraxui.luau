@@ -581,166 +581,68 @@ function ZypheraxUI:CreateWindow(config)
     U.Corner(main, T.CornerLg)
     U.Stroke(main, T.Stroke, 1.2, 0)
 
-    -- Top Glow
-    U.Glow(main, T.Accent, 0.88)
+    -- Top Glow (subtle cyan at top edge)
+    U.Glow(main, T.Accent, 0.92)
 
-    -- // TOPBAR \\ --
-    local topbar = U.New("Frame", {
-        Size = UDim2.new(1, 0, 0, 46),
-        BackgroundColor3 = T.Surface,
-        BackgroundTransparency = 0.15,
-        BorderSizePixel = 0,
-        ZIndex = 3,
-        Parent = main
-    })
-    U.Corner(topbar, T.CornerLg)
-    U.New("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0.5, 0), BackgroundColor3 = T.Surface, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 2, Parent = topbar })
-    U.Divider(topbar, 45)
-
-    -- Accent Dot / Logo
-    local dot = U.New("Frame", {
-        Size = UDim2.new(0, 6, 0, 6),
-        Position = UDim2.new(0, 16, 0.5, -3),
-        BackgroundColor3 = T.Accent,
-        BorderSizePixel = 0,
-        ZIndex = 5,
-        Parent = topbar
-    })
-    U.Corner(dot, UDim.new(1, 0))
-
-    -- Title
-    local titleLbl = U.New("TextLabel", {
-        Text = title,
-        Font = T.Font,
-        TextSize = 15,
-        TextColor3 = T.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 30, 0, 0),
-        Size = UDim2.new(0, 0, 1, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 5,
-        Parent = topbar
-    })
-
-    local sepDot = U.New("TextLabel", {
-        Text = "·",
-        Font = T.FontRegular,
-        TextSize = 16,
-        TextColor3 = T.TextDim,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 34, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Size = UDim2.new(0, 0, 1, 0),
-        ZIndex = 5,
-        Parent = topbar
-    })
-
-    local subLbl = U.New("TextLabel", {
-        Text = sub,
-        Font = T.FontRegular,
-        TextSize = 12,
-        TextColor3 = T.TextMuted,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 40, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Size = UDim2.new(0, 0, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 5,
-        Parent = topbar
-    })
-
-    trackConnection(titleLbl:GetPropertyChangedSignal("TextBounds"):Connect(function()
-        sepDot.Position = UDim2.new(0, 34 + titleLbl.TextBounds.X + 2, 0, 0)
-        subLbl.Position = UDim2.new(0, 42 + titleLbl.TextBounds.X + 12, 0, 0)
-    end))
-
-    -- Control buttons container (right-aligned, precise)
+    -- // OVERLAY CONTROL BUTTONS (top-right corner of window) \\ --
     local ctrlContainer = U.New("Frame", {
-        Size                  = UDim2.new(0, 68, 0, 32),
-        Position              = UDim2.new(1, -76, 0.5, -16),
+        Size                   = UDim2.new(0, 68, 0, 30),
+        Position               = UDim2.new(1, -76, 0, 10),
         BackgroundTransparency = 1,
-        ZIndex                = 6,
-        Parent                = topbar
+        ZIndex                 = 20,
+        Parent                 = main
     })
     U.New("UIListLayout", {
-        FillDirection         = Enum.FillDirection.Horizontal,
-        HorizontalAlignment   = Enum.HorizontalAlignment.Right,
-        VerticalAlignment     = Enum.VerticalAlignment.Center,
-        Padding               = UDim.new(0, 4),
-        Parent                = ctrlContainer
+        FillDirection        = Enum.FillDirection.Horizontal,
+        HorizontalAlignment  = Enum.HorizontalAlignment.Right,
+        VerticalAlignment    = Enum.VerticalAlignment.Center,
+        Padding              = UDim.new(0, 4),
+        Parent               = ctrlContainer
     })
 
-    local function makeCtrlBtn(symbol, hoverColor, isClose)
+    local function makeCtrlBtn(symbol, hoverColor)
         local wrap = U.New("Frame", {
-            Size                  = UDim2.new(0, 28, 0, 28),
-            BackgroundColor3      = T.Surface3,
-            BackgroundTransparency = 0.4,
-            ZIndex                = 6,
-            Parent                = ctrlContainer
+            Size                   = UDim2.new(0, 26, 0, 26),
+            BackgroundColor3       = T.Surface3,
+            BackgroundTransparency = 0.5,
+            ZIndex                 = 20,
+            Parent                 = ctrlContainer
         })
         U.Corner(wrap, T.CornerSm)
-        local wStroke = U.Stroke(wrap, T.Stroke, 1, 0)
-
+        local wStroke = U.Stroke(wrap, T.Stroke, 1, 0.3)
         local lbl = U.New("TextLabel", {
-            Text                  = symbol,
-            Font                  = T.Font,
-            TextSize              = 13,
-            TextColor3            = T.TextMuted,
+            Text                   = symbol,
+            Font                   = T.Font,
+            TextSize               = 12,
+            TextColor3             = T.TextDim,
             BackgroundTransparency = 1,
-            Size                  = UDim2.new(1, 0, 1, 0),
-            ZIndex                = 7,
-            Parent                = wrap
+            Size                   = UDim2.new(1, 0, 1, 0),
+            ZIndex                 = 21,
+            Parent                 = wrap
         })
-
         local btn = U.New("TextButton", {
-            Size                  = UDim2.new(1, 0, 1, 0),
+            Size                   = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
-            Text                  = "",
-            AutoButtonColor       = false,
-            ZIndex                = 8,
-            Parent                = wrap
+            Text                   = "",
+            AutoButtonColor        = false,
+            ZIndex                 = 22,
+            Parent                 = wrap
         })
-
         trackConnection(btn.MouseEnter:Connect(function()
-            U.Tween(wrap, 0.12, { BackgroundColor3 = hoverColor, BackgroundTransparency = 0.1 })
-            U.Tween(wStroke, 0.12, { Color = hoverColor })
-            U.Tween(lbl, 0.12, { TextColor3 = Color3.fromRGB(255,255,255) })
+            U.Tween(wrap,    0.12, { BackgroundColor3 = hoverColor, BackgroundTransparency = 0.05 })
+            U.Tween(wStroke, 0.12, { Color = hoverColor, Transparency = 0 })
+            U.Tween(lbl,     0.12, { TextColor3 = Color3.new(1,1,1) })
         end))
         trackConnection(btn.MouseLeave:Connect(function()
-            U.Tween(wrap, 0.2, { BackgroundColor3 = T.Surface3, BackgroundTransparency = 0.4 })
-            U.Tween(wStroke, 0.2, { Color = T.Stroke })
-            U.Tween(lbl, 0.2, { TextColor3 = T.TextMuted })
+            U.Tween(wrap,    0.2, { BackgroundColor3 = T.Surface3, BackgroundTransparency = 0.5 })
+            U.Tween(wStroke, 0.2, { Color = T.Stroke, Transparency = 0.3 })
+            U.Tween(lbl,     0.2, { TextColor3 = T.TextDim })
         end))
-
         return btn
     end
 
-    local closeBtn = makeCtrlBtn("✕", T.Error, true)
-    local minBtn   = makeCtrlBtn("−", T.Warning, false)
-
-    -- Draggable Topbar
-    local dragging, dragStart, startPos = false, nil, nil
-    trackConnection(topbar.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = inp.Position
-            startPos = shadow.Position
-            local c
-            c = inp.Changed:Connect(function()
-                if inp.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    if c then c:Disconnect() end
-                end
-            end)
-        end
-    end))
-    trackConnection(topbar.InputChanged:Connect(function(inp)
-        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-            local d = inp.Position - dragStart
-            shadow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end))
+    local closeBtn = makeCtrlBtn("✕", T.Error)
+    local minBtn   = makeCtrlBtn("−", T.Warning)
 
     -- Window Object
     local Win = { Tabs = {}, Pages = {}, _currentTab = nil }
@@ -754,7 +656,7 @@ function ZypheraxUI:CreateWindow(config)
         if FloatingToggleGui then pcall(function() FloatingToggleGui:Destroy() end) end
     end
 
-    -- Toggle Window Visibility & Floating Circle Minimize Icon
+    -- Toggle Window Visibility & Floating Bubble
     local floatBtn = EnsureFloatingButton(function()
         Win:ToggleVisibility(true)
     end)
@@ -767,7 +669,7 @@ function ZypheraxUI:CreateWindow(config)
             if FloatingContainer then FloatingContainer.Visible = false end
             main.Size = UDim2.new(0, size.X.Offset * 0.92, 0, size.Y.Offset * 0.92)
             main.BackgroundTransparency = 1
-            U.Tween(main, 0.32, { Size = size, BackgroundTransparency = 0.15 }, Enum.EasingStyle.Quint)
+            U.Tween(main, 0.32, { Size = size, BackgroundTransparency = 0.08 }, Enum.EasingStyle.Quint)
         else
             U.Tween(main, 0.22, {
                 Size = UDim2.new(0, size.X.Offset * 0.92, 0, size.Y.Offset * 0.92),
@@ -784,7 +686,6 @@ function ZypheraxUI:CreateWindow(config)
         U.Ripple(closeBtn, Player:GetMouse().X, Player:GetMouse().Y)
         Win:Destroy()
     end))
-
     trackConnection(minBtn.MouseButton1Click:Connect(function()
         U.Ripple(minBtn, Player:GetMouse().X, Player:GetMouse().Y)
         Win:ToggleVisibility(false)
@@ -798,45 +699,299 @@ function ZypheraxUI:CreateWindow(config)
             Win:ToggleVisibility()
         else
             for _, kb in ipairs(registeredKeybinds) do
-                if inp.KeyCode == kb.key then
-                    kb.callback(kb.key)
-                end
+                if inp.KeyCode == kb.key then kb.callback(kb.key) end
             end
         end
     end))
 
-    -- // SIDEBAR NAVIGATION (Neverlose Style) \\ --
-    local SIDEBAR_W = 160
+    -- // SIDEBAR (Full height, left column — matches reference image) \\ --
+    local SIDEBAR_W = 240
     local sidebar = U.New("Frame", {
-        Size = UDim2.new(0, SIDEBAR_W, 1, -47),
-        Position = UDim2.new(0, 0, 0, 47),
+        Size             = UDim2.new(0, SIDEBAR_W, 1, 0),
+        Position         = UDim2.new(0, 0, 0, 0),
         BackgroundColor3 = T.SidebarBg,
-        BorderSizePixel = 0,
-        ZIndex = 2,
-        Parent = main
+        BorderSizePixel  = 0,
+        ClipsDescendants = true,
+        ZIndex           = 2,
+        Parent           = main
     })
-    U.New("Frame", { Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, 0, 0, 0), BackgroundColor3 = T.Stroke, BorderSizePixel = 0, ZIndex = 3, Parent = sidebar })
+    U.Corner(sidebar, T.CornerLg)
+    -- Right border separator
+    U.New("Frame", {
+        Size             = UDim2.new(0, 1, 1, 0),
+        Position         = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3 = T.Stroke,
+        BorderSizePixel  = 0,
+        ZIndex           = 3,
+        Parent           = sidebar
+    })
+    -- Fill bottom-left corner to be square (covers the rounded corners on the right side)
+    U.New("Frame", {
+        Size             = UDim2.new(0, T.CornerLg.Offset, 1, 0),
+        Position         = UDim2.new(1, -T.CornerLg.Offset, 0, 0),
+        BackgroundColor3 = T.SidebarBg,
+        BorderSizePixel  = 0,
+        ZIndex           = 2,
+        Parent           = sidebar
+    })
 
+    -- // SIDEBAR HEADER (Logo + Title + drag area) \\ --
+    local sidebarHeader = U.New("Frame", {
+        Size             = UDim2.new(1, 0, 0, 72),
+        BackgroundTransparency = 1,
+        ZIndex           = 4,
+        Parent           = sidebar
+    })
+
+    -- Logo box (white square placeholder)
+    local logoBox = U.New("Frame", {
+        Size             = UDim2.new(0, 44, 0, 44),
+        Position         = UDim2.new(0, 14, 0.5, -22),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        ZIndex           = 5,
+        Parent           = sidebarHeader
+    })
+    U.Corner(logoBox, UDim.new(0, 6))
+    -- Logo image (loads if config.Logo provided, otherwise shows "Z")
+    local logoImg = U.New("ImageLabel", {
+        Size                   = UDim2.new(1, -6, 1, -6),
+        Position               = UDim2.new(0, 3, 0, 3),
+        BackgroundTransparency = 1,
+        Image                  = logo or "",
+        ZIndex                 = 6,
+        Parent                 = logoBox
+    })
+    if not logo or logo == "" then
+        logoImg.Visible = false
+        U.New("TextLabel", {
+            Text                   = "Z",
+            Font                   = T.Font,
+            TextSize               = 22,
+            TextColor3             = T.Accent,
+            BackgroundTransparency = 1,
+            Size                   = UDim2.new(1, 0, 1, 0),
+            ZIndex                 = 6,
+            Parent                 = logoBox
+        })
+    end
+
+    -- Title text (blue/bold, like in reference)
+    U.New("TextLabel", {
+        Text                   = string.upper(title),
+        Font                   = T.Font,
+        TextSize               = 15,
+        TextColor3             = T.Accent,
+        BackgroundTransparency = 1,
+        Position               = UDim2.new(0, 66, 0, 16),
+        Size                   = UDim2.new(1, -80, 0, 18),
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        ZIndex                 = 5,
+        Parent                 = sidebarHeader
+    })
+    U.New("TextLabel", {
+        Text                   = sub,
+        Font                   = T.FontRegular,
+        TextSize               = 10,
+        TextColor3             = T.TextMuted,
+        BackgroundTransparency = 1,
+        Position               = UDim2.new(0, 66, 0, 36),
+        Size                   = UDim2.new(1, -80, 0, 14),
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        ZIndex                 = 5,
+        Parent                 = sidebarHeader
+    })
+
+    -- Blue underline divider below header (matching reference image)
+    local headerDivider = U.New("Frame", {
+        Size             = UDim2.new(1, -20, 0, 1.5),
+        Position         = UDim2.new(0, 10, 1, -1),
+        BackgroundColor3 = T.Accent,
+        BorderSizePixel  = 0,
+        ZIndex           = 5,
+        Parent           = sidebarHeader
+    })
+    U.New("UIGradient", {
+        Color    = ColorSequence.new(T.Accent, Color3.fromRGB(0,0,0)),
+        Rotation = 0,
+        Parent   = headerDivider
+    })
+
+    -- Draggable (drag on sidebar header)
+    local dragging, dragStart, startPos = false, nil, nil
+    trackConnection(sidebarHeader.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or
+           inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = inp.Position
+            startPos  = shadow.Position
+            local c
+            c = inp.Changed:Connect(function()
+                if inp.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if c then c:Disconnect() end
+                end
+            end)
+        end
+    end))
+    trackConnection(sidebarHeader.InputChanged:Connect(function(inp)
+        if dragging and (
+            inp.UserInputType == Enum.UserInputType.MouseMovement or
+            inp.UserInputType == Enum.UserInputType.Touch
+        ) then
+            local d = inp.Position - dragStart
+            shadow.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end))
+
+    -- // SIDEBAR TAB LIST (scrollable, pill-style) \\ --
     local tabList = U.New("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 1, -20),
-        Position = UDim2.new(0, 0, 0, 10),
+        Size                   = UDim2.new(1, 0, 1, -72 - 80),  -- leave room for header + footer
+        Position               = UDim2.new(0, 0, 0, 72),
         BackgroundTransparency = 1,
-        ScrollBarThickness = 0,
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        ZIndex = 3,
-        Parent = sidebar
+        ScrollBarThickness     = 0,
+        AutomaticCanvasSize    = Enum.AutomaticSize.Y,
+        CanvasSize             = UDim2.new(0, 0, 0, 0),
+        ZIndex                 = 3,
+        Parent                 = sidebar
     })
-    U.New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4), Parent = tabList })
-    U.New("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), Parent = tabList })
+    U.New("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding   = UDim.new(0, 3),
+        Parent    = tabList
+    })
+    U.New("UIPadding", {
+        PaddingLeft   = UDim.new(0, 10),
+        PaddingRight  = UDim.new(0, 10),
+        PaddingTop    = UDim.new(0, 8),
+        Parent        = tabList
+    })
 
-    -- // CONTENT CONTAINER (Neverlose Double Column Area) \\ --
-    local contentArea = U.New("Frame", {
-        Size = UDim2.new(1, -(SIDEBAR_W + 1), 1, -47),
-        Position = UDim2.new(0, SIDEBAR_W + 1, 0, 47),
+    -- // SIDEBAR PLAYER FOOTER CARD \\ --
+    local footer = U.New("Frame", {
+        Size             = UDim2.new(1, 0, 0, 72),
+        Position         = UDim2.new(0, 0, 1, -72),
+        BackgroundColor3 = T.Surface,
+        BackgroundTransparency = 0.3,
+        BorderSizePixel  = 0,
+        ZIndex           = 4,
+        Parent           = sidebar
+    })
+    -- Top border of footer
+    U.New("Frame", {
+        Size             = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = T.Stroke,
+        BorderSizePixel  = 0,
+        ZIndex           = 5,
+        Parent           = footer
+    })
+
+    -- Avatar circle
+    local avatarFrame = U.New("Frame", {
+        Size             = UDim2.new(0, 44, 0, 44),
+        Position         = UDim2.new(0, 12, 0.5, -22),
+        BackgroundColor3 = T.Surface3,
+        ZIndex           = 5,
+        Parent           = footer
+    })
+    U.Corner(avatarFrame, UDim.new(1, 0))
+    U.Stroke(avatarFrame, T.Accent, 1.5, 0.3)
+
+    local avatarImg = U.New("ImageLabel", {
+        Size                   = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        ZIndex = 2,
-        Parent = main
+        Image                  = "",
+        ScaleType              = Enum.ScaleType.Crop,
+        ZIndex                 = 6,
+        Parent                 = avatarFrame
+    })
+    U.Corner(avatarImg, UDim.new(1, 0))
+
+    -- Load avatar async
+    task.spawn(function()
+        local ok, url = pcall(function()
+            return Players:GetUserThumbnailAsync(
+                Player.UserId,
+                Enum.ThumbnailType.AvatarBust,
+                Enum.ThumbnailSize.Size100x100
+            )
+        end)
+        if ok and url then avatarImg.Image = url end
+    end)
+
+    -- Online status dot
+    local statusDot = U.New("Frame", {
+        Size             = UDim2.new(0, 10, 0, 10),
+        Position         = UDim2.new(1, -2, 1, -2),
+        AnchorPoint      = Vector2.new(1, 1),
+        BackgroundColor3 = T.Success,
+        ZIndex           = 7,
+        Parent           = avatarFrame
+    })
+    U.Corner(statusDot, UDim.new(1, 0))
+    U.Stroke(statusDot, T.SidebarBg, 1.5, 0)
+
+    -- Username
+    U.New("TextLabel", {
+        Text                   = Player.DisplayName,
+        Font                   = T.Font,
+        TextSize               = 13,
+        TextColor3             = T.Text,
+        BackgroundTransparency = 1,
+        Position               = UDim2.new(0, 64, 0, 14),
+        Size                   = UDim2.new(1, -80, 0, 16),
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        TextTruncate           = Enum.TextTruncate.AtEnd,
+        ZIndex                 = 5,
+        Parent                 = footer
+    })
+
+    -- @username muted
+    U.New("TextLabel", {
+        Text                   = "@" .. Player.Name,
+        Font                   = T.FontRegular,
+        TextSize               = 10,
+        TextColor3             = T.TextMuted,
+        BackgroundTransparency = 1,
+        Position               = UDim2.new(0, 64, 0, 32),
+        Size                   = UDim2.new(1, -80, 0, 13),
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        TextTruncate           = Enum.TextTruncate.AtEnd,
+        ZIndex                 = 5,
+        Parent                 = footer
+    })
+
+    -- Status badge ("Online" pill)
+    local statusBadge = U.New("Frame", {
+        Size             = UDim2.new(0, 52, 0, 16),
+        Position         = UDim2.new(0, 64, 0, 48),
+        BackgroundColor3 = T.Success,
+        BackgroundTransparency = 0.6,
+        ZIndex           = 5,
+        Parent           = footer
+    })
+    U.Corner(statusBadge, UDim.new(1, 0))
+    U.New("TextLabel", {
+        Text                   = "●  Online",
+        Font                   = T.Font,
+        TextSize               = 9,
+        TextColor3             = T.Success,
+        BackgroundTransparency = 1,
+        Size                   = UDim2.new(1, 0, 1, 0),
+        ZIndex                 = 6,
+        Parent                 = statusBadge
+    })
+
+
+    -- // CONTENT CONTAINER (Double Column, right of sidebar) \\ --
+    local contentArea = U.New("Frame", {
+        Size             = UDim2.new(1, -(SIDEBAR_W + 1), 1, -8),
+        Position         = UDim2.new(0, SIDEBAR_W + 1, 0, 4),
+        BackgroundTransparency = 1,
+        ZIndex           = 2,
+        Parent           = main
     })
 
     -- // RESIZE HANDLE (bottom-right corner drag) \\ --
@@ -901,53 +1056,75 @@ function ZypheraxUI:CreateWindow(config)
         local tabName = type(nameOrCfg) == "table" and (nameOrCfg.Name or nameOrCfg.Title) or nameOrCfg
         local tabIcon = type(nameOrCfg) == "table" and (nameOrCfg.Icon or nameOrCfg.Logo) or icon
 
-        local tabBtn = U.New("TextButton", {
-            Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = T.Surface2,
+        local tabBtn = U.New("Frame", {
+            Size                   = UDim2.new(1, 0, 0, 40),
+            BackgroundColor3       = T.Surface2,
             BackgroundTransparency = 1,
-            Text = "",
-            AutoButtonColor = false,
-            ZIndex = 4,
-            Parent = tabList
+            ZIndex                 = 4,
+            Parent                 = tabList
         })
-        U.Corner(tabBtn, T.CornerSm)
-        local tabBtnStroke = U.Stroke(tabBtn, T.Stroke, 1, 1)
+        U.Corner(tabBtn, UDim.new(0, 8))
 
+        -- Left accent bar (pill shape, shown when active)
         local activeBar = U.New("Frame", {
-            Size = UDim2.new(0, 3, 0, 18),
-            Position = UDim2.new(0, 0, 0.5, -9),
+            Size             = UDim2.new(0, 3, 0, 22),
+            Position         = UDim2.new(0, 0, 0.5, -11),
             BackgroundColor3 = T.Accent,
             BackgroundTransparency = 1,
-            ZIndex = 5,
-            Parent = tabBtn
+            ZIndex           = 5,
+            Parent           = tabBtn
         })
         U.Corner(activeBar, UDim.new(1, 0))
 
-        local iconOffset = 12
+        -- Icon (image or default circle dot)
+        local iconEl
+        local iconOffset = 14
         if tabIcon and tabIcon ~= "" then
-            U.New("ImageLabel", {
-                Image = string.find(tabIcon, "rbxassetid") and tabIcon or ("rbxassetid://" .. tabIcon),
-                Size = UDim2.new(0, 15, 0, 15),
-                Position = UDim2.new(0, 10, 0.5, -7),
-                BackgroundTransparency = 1,
-                ImageColor3 = T.TextMuted,
-                ZIndex = 5,
-                Parent = tabBtn
+            iconEl = U.New("ImageLabel", {
+                Image                  = string.find(tabIcon, "rbxassetid") and tabIcon or ("rbxassetid://" .. tabIcon),
+                Size                   = UDim2.new(0, 18, 0, 18),
+                Position               = UDim2.new(0, 12, 0.5, -9),
+                BackgroundColor3       = T.Surface3,
+                BackgroundTransparency = 0.3,
+                ImageColor3            = T.TextMuted,
+                ZIndex                 = 5,
+                Parent                 = tabBtn
             })
-            iconOffset = 32
+            U.Corner(iconEl, UDim.new(0, 4))
+            iconOffset = 38
+        else
+            iconEl = U.New("Frame", {
+                Size             = UDim2.new(0, 6, 0, 6),
+                Position         = UDim2.new(0, 16, 0.5, -3),
+                BackgroundColor3 = T.TextDim,
+                ZIndex           = 5,
+                Parent           = tabBtn
+            })
+            U.Corner(iconEl, UDim.new(1, 0))
         end
 
         local tabLbl = U.New("TextLabel", {
-            Text = tabName,
-            Font = T.Font,
-            TextSize = 13,
-            TextColor3 = T.TextMuted,
+            Text                   = tabName,
+            Font                   = T.FontRegular,
+            TextSize               = 13,
+            TextColor3             = T.TextMuted,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, iconOffset, 0, 0),
-            Size = UDim2.new(1, -iconOffset - 6, 1, 0),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 5,
-            Parent = tabBtn
+            Position               = UDim2.new(0, iconOffset, 0, 0),
+            Size                   = UDim2.new(1, -iconOffset - 10, 1, 0),
+            TextXAlignment         = Enum.TextXAlignment.Left,
+            ZIndex                 = 5,
+            Parent                 = tabBtn
+        })
+
+        -- Invisible clickable overlay
+        local tabBtnStroke = U.Stroke(tabBtn, T.Stroke, 1, 1)  -- hidden by default
+        local clickable = U.New("TextButton", {
+            Size                   = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text                   = "",
+            AutoButtonColor        = false,
+            ZIndex                 = 6,
+            Parent                 = tabBtn
         })
 
         -- Double Column Container (Side 1 = Left Column, Side 2 = Right Column)
@@ -984,40 +1161,59 @@ function ZypheraxUI:CreateWindow(config)
         local function activate()
             for _, t in ipairs(Win.Tabs) do
                 t.page.Visible = false
-                U.Tween(t.btn, 0.2, { BackgroundTransparency = 1 })
-                U.Tween(t.stroke, 0.2, { Transparency = 1 })
-                U.Tween(t.lbl, 0.2, { TextColor3 = T.TextMuted })
-                U.Tween(t.bar, 0.2, { BackgroundTransparency = 1 })
+                -- Deactivate: remove pill bg, fade label, hide bar and icon tint
+                U.Tween(t.btn,    0.18, { BackgroundTransparency = 1 })
+                U.Tween(t.stroke, 0.18, { Transparency = 1 })
+                U.Tween(t.lbl,    0.18, { TextColor3 = T.TextMuted, Font = T.FontRegular })
+                U.Tween(t.bar,    0.18, { BackgroundTransparency = 1 })
+                if t.iconEl and t.iconEl:IsA("ImageLabel") then
+                    U.Tween(t.iconEl, 0.18, { ImageColor3 = T.TextMuted, BackgroundTransparency = 0.3 })
+                elseif t.iconEl and t.iconEl:IsA("Frame") then
+                    U.Tween(t.iconEl, 0.18, { BackgroundColor3 = T.TextDim })
+                end
             end
             pageFrame.Visible = true
-            U.Tween(tabBtn, 0.2, { BackgroundTransparency = 0 })
-            U.Tween(tabBtnStroke, 0.2, { Transparency = 0.6, Color = T.Stroke })
-            U.Tween(tabLbl, 0.2, { TextColor3 = T.Accent })
-            U.Tween(activeBar, 0.2, { BackgroundTransparency = 0 })
+            -- Activate: pill bg cyan-tint, accent label, show left bar
+            U.Tween(tabBtn,       0.2, { BackgroundColor3 = T.AccentDark, BackgroundTransparency = 0.7 })
+            U.Tween(tabBtnStroke, 0.2, { Transparency = 0.5, Color = T.AccentDark })
+            U.Tween(tabLbl,       0.2, { TextColor3 = T.Accent, Font = T.Font })
+            U.Tween(activeBar,    0.2, { BackgroundTransparency = 0 })
+            if iconEl and iconEl:IsA("ImageLabel") then
+                U.Tween(iconEl, 0.2, { ImageColor3 = T.Accent, BackgroundTransparency = 0.1 })
+            elseif iconEl and iconEl:IsA("Frame") then
+                U.Tween(iconEl, 0.2, { BackgroundColor3 = T.Accent })
+            end
             Win._currentTab = tabName
         end
 
-        trackConnection(tabBtn.MouseButton1Click:Connect(function()
+        trackConnection(clickable.MouseButton1Click:Connect(function()
             U.Ripple(tabBtn, Player:GetMouse().X, Player:GetMouse().Y)
             activate()
         end))
-
-        trackConnection(tabBtn.MouseEnter:Connect(function()
+        trackConnection(clickable.MouseEnter:Connect(function()
             if Win._currentTab ~= tabName then
-                U.Tween(tabBtnStroke, 0.12, { Color = T.StrokeHover, Transparency = 0 })
-                U.Tween(tabLbl, 0.15, { TextColor3 = T.Text })
+                U.Tween(tabBtn,       0.12, { BackgroundColor3 = T.Surface3, BackgroundTransparency = 0.5 })
+                U.Tween(tabLbl,       0.12, { TextColor3 = T.Text })
             end
         end))
-        trackConnection(tabBtn.MouseLeave:Connect(function()
+        trackConnection(clickable.MouseLeave:Connect(function()
             if Win._currentTab ~= tabName then
-                U.Tween(tabBtnStroke, 0.2, { Color = T.Stroke, Transparency = 1 })
-                U.Tween(tabLbl, 0.2, { TextColor3 = T.TextMuted })
+                U.Tween(tabBtn,       0.2, { BackgroundTransparency = 1 })
+                U.Tween(tabLbl,       0.2, { TextColor3 = T.TextMuted })
             end
         end))
 
         if #Win.Tabs == 0 then activate() end
 
-        local entry = { btn = tabBtn, stroke = tabBtnStroke, lbl = tabLbl, bar = activeBar, page = pageFrame, name = tabName }
+        local entry = {
+            btn    = tabBtn,
+            stroke = tabBtnStroke,
+            lbl    = tabLbl,
+            bar    = activeBar,
+            iconEl = iconEl,
+            page   = pageFrame,
+            name   = tabName
+        }
         table.insert(Win.Tabs, entry)
 
         -- // TAB / PAGE COMPONENT API (Neverlose Sections) \\ --
