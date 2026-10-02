@@ -40,17 +40,17 @@ local function OpenClose()
 
   local Close_ImageButton = Custom:Create("ImageButton", {
     BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-    BorderColor3 = Color3.fromRGB(255, 0, 0),
-    BackgroundTransparency = 1,
+    BorderColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0,
     Position = UDim2.new(0.1021, 0, 0.0743, 0),
-    Size = UDim2.new(0, 59, 0, 49),
+    Size = UDim2.new(0, 50, 0, 50),
     Image = "rbxassetid://106764279090045",
     Visible = false,
   }, ScreenGui)
 
   local UICorner = Custom:Create("UICorner", {
     Name = "MainCorner",
-    CornerRadius = UDim.new(0, 9),
+    CornerRadius = UDim.new(1, 0),
   }, Close_ImageButton)
 
   local dragging, dragStart, startPos = false, nil, nil
@@ -380,6 +380,7 @@ function Zypherax_Library:CreateWindow(Config)
   local Description = Config[2] or Config.Description or ""
   local TabWidth = Config[3] or Config["Tab Width"] or 120
   local SizeUi = Config[4] or Config.SizeUi or UDim2.fromOffset(550, 315)
+  local Logo = Config[5] or Config.Logo or ""
 
   local Funcs = {}
 
@@ -438,6 +439,20 @@ function Zypherax_Library:CreateWindow(Config)
     Name = "Top"
   }, Main)
 
+  local TitleOffset = 10
+  if Logo ~= "" then
+    local LogoImage = Custom:Create("ImageLabel", {
+      BackgroundTransparency = 1,
+      Position = UDim2.new(0, 10, 0.5, 0),
+      AnchorPoint = Vector2.new(0, 0.5),
+      Size = UDim2.new(0, 24, 0, 24),
+      Image = Logo,
+      Name = "LogoImage"
+    }, Top)
+    Custom:Create("UICorner", { CornerRadius = UDim.new(1, 0) }, LogoImage)
+    TitleOffset = 42
+  end
+
   local TextLabel = Custom:Create("TextLabel", {
     Font = Enum.Font.GothamBold,
     Text = Title,
@@ -449,7 +464,7 @@ function Zypherax_Library:CreateWindow(Config)
     BorderColor3 = Color3.fromRGB(0, 0, 0),
     BorderSizePixel = 0,
     Size = UDim2.new(1, -100, 1, 0),
-    Position = UDim2.new(0, 10, 0, 0)
+    Position = UDim2.new(0, TitleOffset, 0, 0)
   }, Top)
 
   Custom:Create("UICorner", {}, Top)
@@ -465,7 +480,7 @@ function Zypherax_Library:CreateWindow(Config)
     BorderColor3 = Color3.fromRGB(0, 0, 0),
     BorderSizePixel = 0,
     Size = UDim2.new(1, -(TextLabel.TextBounds.X + 104), 1, 0),
-    Position = UDim2.new(0, TextLabel.TextBounds.X + 15, 0, 0)
+    Position = UDim2.new(0, TitleOffset + TextLabel.TextBounds.X + 5, 0, 0)
   }, Top)
 
   Custom:Create("UIStroke", {
