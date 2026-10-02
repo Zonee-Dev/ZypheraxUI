@@ -44,13 +44,28 @@ local function OpenClose()
     BackgroundTransparency = 0,
     Position = UDim2.new(0.1021, 0, 0.0743, 0),
     Size = UDim2.new(0, 50, 0, 50),
-    Image = "rbxassetid://106764279090045",
+    Image = "", -- Kosongkan agar gambar tidak melar/terpotong sudut
     Visible = false,
   }, ScreenGui)
 
   local UICorner = Custom:Create("UICorner", {
     Name = "MainCorner",
     CornerRadius = UDim.new(1, 0),
+  }, Close_ImageButton)
+
+  local UIStroke = Custom:Create("UIStroke", {
+    Color = Custom.ColorRGB,
+    Thickness = 2,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+  }, Close_ImageButton)
+
+  local MinimizeLogo = Custom:Create("ImageLabel", {
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Size = UDim2.new(0, 26, 0, 26), -- Ukuran proporsional di tengah lingkaran
+    Image = "rbxassetid://106764279090045",
+    ScaleType = Enum.ScaleType.Fit,
   }, Close_ImageButton)
 
   local dragging, dragStart, startPos = false, nil, nil
@@ -447,6 +462,7 @@ function Zypherax_Library:CreateWindow(Config)
       AnchorPoint = Vector2.new(0, 0.5),
       Size = UDim2.new(0, 24, 0, 24),
       Image = Logo,
+      ScaleType = Enum.ScaleType.Fit,
       Name = "LogoImage"
     }, Top)
     Custom:Create("UICorner", { CornerRadius = UDim.new(1, 0) }, LogoImage)
