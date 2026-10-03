@@ -102,9 +102,10 @@ local function OpenClose()
   return Close_ImageButton
 end
 
-local Open_Close = OpenClose()
+local Open_Close -- Akan di-inisialisasi saat CreateWindow dipanggil
 
 local function MakeDraggable(topbarobject, object)
+
   local dragging, dragStart, startPos = false, nil, nil
 
   local function UpdatePos(input)
@@ -400,6 +401,23 @@ function Zypherax_Library:CreateWindow(Config)
   local TabWidth = Config[3] or Config["Tab Width"] or 120
   local SizeUi = Config[4] or Config.SizeUi or UDim2.fromOffset(550, 315)
   local Logo = Config[5] or Config.Logo or ""
+  local ThemeColor = Config[6] or Config.Color or Color3.fromRGB(0, 85, 255)
+
+  -- Update Global Theme Color
+  Custom.ColorRGB = ThemeColor
+
+  -- Init Minimize UI if not yet
+  if not Open_Close then
+      Open_Close = OpenClose()
+      -- Cari image label dan update logonya
+      for _, child in ipairs(Open_Close:GetChildren()) do
+          if child:IsA("ImageLabel") then
+              child.Image = Logo
+          elseif child:IsA("UIStroke") then
+              child.Color = ThemeColor
+          end
+      end
+  end
 
   local Funcs = {}
 
