@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local VirtualUser = game:GetService("VirtualUser")
 
 local Custom = {} do
-  Custom.ColorRGB = Color3.fromRGB(0, 85, 255)
+  Custom.ColorRGB = Color3.fromRGB(250, 7, 7)
 
   function Custom:Create(Name, Properties, Parent)
     local _instance = Instance.new(Name)
@@ -36,36 +36,21 @@ Custom:EnabledAFK()
 local function OpenClose()
   local ScreenGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-  }, Player.PlayerGui)
+  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
 
   local Close_ImageButton = Custom:Create("ImageButton", {
     BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-    BorderColor3 = Color3.fromRGB(0, 0, 0),
-    BackgroundTransparency = 0,
+    BorderColor3 = Color3.fromRGB(255, 0, 0),
+    BackgroundTransparency = 1,
     Position = UDim2.new(0.1021, 0, 0.0743, 0),
-    Size = UDim2.new(0, 50, 0, 50),
-    Image = "", -- Kosongkan agar gambar tidak melar/terpotong sudut
+    Size = UDim2.new(0, 59, 0, 49),
+    Image = "rbxassetid://136890595976124",
     Visible = false,
   }, ScreenGui)
 
   local UICorner = Custom:Create("UICorner", {
     Name = "MainCorner",
-    CornerRadius = UDim.new(1, 0),
-  }, Close_ImageButton)
-
-  local UIStroke = Custom:Create("UIStroke", {
-    Color = Custom.ColorRGB,
-    Thickness = 2,
-    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-  }, Close_ImageButton)
-
-  local MinimizeLogo = Custom:Create("ImageLabel", {
-    BackgroundTransparency = 1,
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Size = UDim2.new(0, 26, 0, 26), -- Ukuran proporsional di tengah lingkaran
-    Image = "rbxassetid://106764279090045",
-    ScaleType = Enum.ScaleType.Fit,
+    CornerRadius = UDim.new(0, 9),
   }, Close_ImageButton)
 
   local dragging, dragStart, startPos = false, nil, nil
@@ -170,11 +155,11 @@ function CircleClick(Button, X, Y)
 	end)
 end
 
-local Zypherax_Library, Notification = {}, {}
+local Speed_Library, Notification = {}, {}
 
-Zypherax_Library.Unloaded = false
+Speed_Library.Unloaded = false
 
-function Zypherax_Library:SetNotification(Config)
+function Speed_Library:SetNotification(Config)
   local Title = Config[1] or Config.Title or ""
   local Description = Config[2] or Config.Description or ""
 	local Content = Config[3] or Config.Content or ""
@@ -183,7 +168,7 @@ function Zypherax_Library:SetNotification(Config)
 
   local NotificationGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-  }, Player.PlayerGui)
+  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
 
   local NotificationLayout = Custom:Create("Frame", {
     AnchorPoint = Vector2.new(1, 1),
@@ -390,18 +375,17 @@ function Zypherax_Library:SetNotification(Config)
   return Notification
 end
 
-function Zypherax_Library:CreateWindow(Config)
-  local Title = Config[1] or Config.Title or "ZYPHERAX HUB"
+function Speed_Library:CreateWindow(Config)
+  local Title = Config[1] or Config.Title or ""
   local Description = Config[2] or Config.Description or ""
   local TabWidth = Config[3] or Config["Tab Width"] or 120
   local SizeUi = Config[4] or Config.SizeUi or UDim2.fromOffset(550, 315)
-  local Logo = Config[5] or Config.Logo or ""
 
   local Funcs = {}
 
-  local ZypheraxHubGui = Custom:Create("ScreenGui", {
+  local SpeedHubXGui = Custom:Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-  }, Player.PlayerGui)
+  }, RunService:IsStudio() and Player.PlayerGui or (gethui() or cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")))
 
   local DropShadowHolder = Custom:Create("Frame", {
     BackgroundTransparency = 1,
@@ -409,8 +393,8 @@ function Zypherax_Library:CreateWindow(Config)
     Size = UDim2.new(0, 455, 0, 350),
     ZIndex = 0,
     Name = "DropShadowHolder",
-    Position = UDim2.new(0, (ZypheraxHubGui.AbsoluteSize.X // 2 - 455 // 2), 0, (ZypheraxHubGui.AbsoluteSize.Y // 2 - 350 // 2))
-  }, ZypheraxHubGui)
+    Position = UDim2.new(0, (SpeedHubXGui.AbsoluteSize.X // 2 - 455 // 2), 0, (SpeedHubXGui.AbsoluteSize.Y // 2 - 350 // 2))
+  }, SpeedHubXGui)
 
   local DropShadow = Custom:Create("ImageLabel", {
     Image = "",
@@ -454,21 +438,6 @@ function Zypherax_Library:CreateWindow(Config)
     Name = "Top"
   }, Main)
 
-  local TitleOffset = 10
-  if Logo ~= "" then
-    local LogoImage = Custom:Create("ImageLabel", {
-      BackgroundTransparency = 1,
-      Position = UDim2.new(0, 10, 0.5, 0),
-      AnchorPoint = Vector2.new(0, 0.5),
-      Size = UDim2.new(0, 24, 0, 24),
-      Image = Logo,
-      ScaleType = Enum.ScaleType.Fit,
-      Name = "LogoImage"
-    }, Top)
-    Custom:Create("UICorner", { CornerRadius = UDim.new(1, 0) }, LogoImage)
-    TitleOffset = 42
-  end
-
   local TextLabel = Custom:Create("TextLabel", {
     Font = Enum.Font.GothamBold,
     Text = Title,
@@ -480,7 +449,7 @@ function Zypherax_Library:CreateWindow(Config)
     BorderColor3 = Color3.fromRGB(0, 0, 0),
     BorderSizePixel = 0,
     Size = UDim2.new(1, -100, 1, 0),
-    Position = UDim2.new(0, TitleOffset, 0, 0)
+    Position = UDim2.new(0, 10, 0, 0)
   }, Top)
 
   Custom:Create("UICorner", {}, Top)
@@ -496,7 +465,7 @@ function Zypherax_Library:CreateWindow(Config)
     BorderColor3 = Color3.fromRGB(0, 0, 0),
     BorderSizePixel = 0,
     Size = UDim2.new(1, -(TextLabel.TextBounds.X + 104), 1, 0),
-    Position = UDim2.new(0, TitleOffset + TextLabel.TextBounds.X + 5, 0, 0)
+    Position = UDim2.new(0, TextLabel.TextBounds.X + 15, 0, 0)
   }, Top)
 
   Custom:Create("UIStroke", {
@@ -659,8 +628,8 @@ function Zypherax_Library:CreateWindow(Config)
 
   Close.Activated:Connect(function()
 		CircleClick(Close, Player:GetMouse().X, Player:GetMouse().Y)
-    if ZypheraxHubGui then ZypheraxHubGui:Destroy() end
-		if not Zypherax_Library.Unloaded then Zypherax_Library.Unloaded = true end
+    if SpeedHubXGui then SpeedHubXGui:Destroy() end
+		if not Speed_Library.Unloaded then Speed_Library.Unloaded = true end
 	end)
 
   DropShadowHolder.Size = UDim2.new(0, 115 + TextLabel.TextBounds.X + 1 + TextLabel1.TextBounds.X, 0, 350)
@@ -1276,7 +1245,7 @@ function Zypherax_Library:CreateWindow(Config)
       function Item:AddButton(Config)
         local Title = Config[1] or Config.Title or ""
         local Content = Config[2] or Config.Content or ""
-        local Icon = Config[3] or Config.Icon or ""
+        local Icon = Config[3] or Config.Icon or "rbxassetid://7734010488"
         local Callback = Config[4] or Config.Callback or function() end
         local Funcs_Button = {}
 
@@ -2240,4 +2209,4 @@ function Zypherax_Library:CreateWindow(Config)
   return Tabs
 end
 
-return Zypherax_Library
+return Speed_Library
