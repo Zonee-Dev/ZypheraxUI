@@ -1,11 +1,3 @@
---[[
-	ZYPHERAX UI — reconstruction 1:1 dari mock.
-	Spec terukur (mock 357px wide -> design 420px, factor 1.176):
-	  card 420x282 R28 | gap 7 | bar 64 pill | logo O122 ring10 inner102 stroke2 glyph56
-	  avatar 48 ring2 | discord 100x30 pill | stroke brand 2px | flat, no shadow.
-	Semua metric hidup di satu tabel Metrics. Jangan hardcode angka di body.
-]]
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
