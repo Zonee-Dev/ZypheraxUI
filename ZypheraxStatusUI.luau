@@ -1,10 +1,3 @@
---[[
-	Zypherax Hub - Status UI
-	Layout: logo badge, content card, user status bar.
-	Item API (AddButton, AddToggle, AddSlider) uses the same positional
-	arguments as the old library, so existing scripts port over directly.
-]]
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
