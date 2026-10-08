@@ -27,20 +27,22 @@ local DEFAULT_LOGO = "rbxassetid://106764279090045"
 -- Measured tokens -------------------------------------------------------
 
 local Theme = {
-	-- Gradient used by every stroke in the reference (per-element, vertical).
+	-- Gradient used by every stroke in the interface (per-element, vertical).
+	-- Electric blue -> royal blue, sampled to sit next to the logo emblem.
 	-- NOTE: keep this a gradient. Replacing the shells below with a flat
 	-- UIStroke is exactly what makes the window look "roblox default".
-	StrokeTop = Color3.fromRGB(88, 163, 244),
-	StrokeMid = Color3.fromRGB(45, 98, 173),
-	StrokeBottom = Color3.fromRGB(12, 45, 115),
+	StrokeTop = Color3.fromRGB(88, 166, 255),
+	StrokeMid = Color3.fromRGB(35, 136, 255),
+	StrokeBottom = Color3.fromRGB(27, 79, 216),
 
-	-- Surfaces, sampled from the frame
-	Surface = Color3.fromRGB(44, 43, 49),      -- card + bar + badge core
-	Raised = Color3.fromRGB(51, 50, 57),       -- rows / controls
-	Hover = Color3.fromRGB(59, 58, 66),
-	Pressed = Color3.fromRGB(45, 44, 51),
-	Inset = Color3.fromRGB(38, 37, 43),
-	Track = Color3.fromRGB(66, 65, 73),
+	-- Surfaces, deep charcoal with a hint of tonal depth
+	Surface = Color3.fromRGB(41, 41, 46),
+	SurfaceDeep = Color3.fromRGB(36, 36, 41),
+	Raised = Color3.fromRGB(49, 49, 55),
+	Hover = Color3.fromRGB(57, 57, 64),
+	Pressed = Color3.fromRGB(44, 44, 50),
+	Inset = Color3.fromRGB(34, 34, 39),
+	Track = Color3.fromRGB(64, 64, 71),
 
 	-- Lines
 	Border = Color3.fromRGB(58, 57, 65),
@@ -68,15 +70,18 @@ local WIDTH = 420
 local CARD_H = 301
 local GAP = 14
 local BAR_H = 74
-local OVERHANG = 72                 -- half of the badge sits above the card
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
 local STROKE = 2
+local ROW = 2                       -- silhouette slice height for the notch
 
-local BADGE = 144                   -- outer diameter of the logo badge
-local BADGE_RING = 10               -- white ring thickness
-local BADGE_SHADOW_H = 46
+-- Logo disc + the transparent concave notch carved out of the panel top.
+-- The notch is a true negative-space cutout: no white disc, no filler.
+local BADGE_D = 124                 -- gradient-outlined logo disc diameter
+local NOTCH_R = 72                  -- radius of the recessed cutout
+local NOTCH_GAP = NOTCH_R - BADGE_D / 2   -- transparent breathing room (10px)
+local OVERHANG = BADGE_D / 2        -- logo centre sits on the panel top edge
 
 local AVATAR = 54
 local AVATAR_IMG = 38
@@ -93,7 +98,7 @@ local DISCORD_H = 38
 local DISCORD_MARGIN = 12
 
 local CONTENT_X = 16
-local CONTENT_TOP = 78              -- clears the badge overhang inside the card
+local CONTENT_TOP = NOTCH_R + 12    -- clears the recessed notch inside the card
 local CONTENT_BOTTOM = 16
 
 local Library = {
@@ -140,10 +145,11 @@ end
 -- Implemented as a slightly larger gradient shell with the fill inset on top,
 -- because UIStroke cannot take a gradient. If UIGradient ever fails on an
 -- executor, the shell falls back to the flat top colour instead of white.
-local function GradientShell(parent, name, position, size, radius, top, bottom, zIndex)
-	top = top or Theme.StrokeTop
-	bottom = bottom or Theme.StrokeBottom
-	local mid = top:Lerp(bottom, 0.5)
+local function GradientShell(parent, name, position, size, radius, colors, zIndex)
+	colors = colors or Theme
+	local top = colors.top or Theme.StrokeTop
+	local mid = colors.mid or Theme.StrokeMid
+	local bottom = colors.bottom or Theme.StrokeBottom
 
 	local shell = New("Frame", {
 		Name = name .. "Shell",
@@ -1463,10 +1469,12 @@ function Library:CreateWindow(cfg)
 	end
 
 	-- Per-window accent: the measured brand gradient, or a tinted variant.
-	local accents = { top = Theme.StrokeTop, bottom = Theme.StrokeBottom }
+	local accents = { top = Theme.StrokeTop, mid = Theme.StrokeMid, bottom = Theme.StrokeBottom }
 	if cfg.Color and typeof(cfg.Color) == "Color3" then
+		local deep = Color3.fromRGB(8, 20, 48)
 		accents.top = cfg.Color
-		accents.bottom = cfg.Color:Lerp(Color3.fromRGB(8, 20, 48), 0.62)
+		accents.mid = cfg.Color:Lerp(deep, 0.35)
+		accents.bottom = cfg.Color:Lerp(deep, 0.62)
 	end
 	accents.fill = accents.top:Lerp(accents.bottom, 0.35)
 
@@ -1497,31 +1505,114 @@ function Library:CreateWindow(cfg)
 	})
 	local uiScale = New("UIScale", { Parent = root })
 
-	-- Main card -----------------------------------------------------------
+	-- Main panel with a true transparent notch ----------------------------
+	-- The panel is sliced into 2px horizontal rows. Every row pair skirts the
+	-- notch circle, so the top edge genuinely curves AROUND the logo and the
+	-- cutout stays negative space (the 3D scene shows through). The gradient
+	-- outline is a second silhouette, 2px larger, drawn underneath; the fill
+	-- silhouette on top leaves a perfect 2px band that follows every curve,
+	-- including the recessed arc. No white disc, no filler, no seam.
 
-	GradientShell(root, "Card", UDim2.fromOffset(0, OVERHANG), UDim2.fromOffset(WIDTH, CARD_H), R_CARD, accents.top, accents.bottom, 1)
-	local card = Fill(root.CardShell, "Card", R_CARD, Theme.Surface, 2)
-	card.ClipsDescendants = true
+	local function cornerInset(d, r)
+		if d >= r then
+			return 0
+		end
+		return r - math.sqrt(r * r - (r - d) * (r - d))
+	end
 
-	-- Soft shadow the badge casts onto the card
-	local badgeShadow = New("Frame", {
-		Name = "BadgeShadow",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, BADGE / 2 - 8),
-		Size = UDim2.fromOffset(BADGE + 70, BADGE_SHADOW_H),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		ZIndex = 3,
-		Parent = card,
+	local function gradAt(t)
+		t = math.clamp(t, 0, 1)
+		if t < 0.5 then
+			return accents.top:Lerp(accents.mid, t * 2)
+		end
+		return accents.mid:Lerp(accents.bottom, (t - 0.5) * 2)
+	end
+
+	local panel = New("Frame", {
+		Name = "Panel",
+		Position = UDim2.fromOffset(0, OVERHANG),
+		Size = UDim2.fromOffset(WIDTH, CARD_H),
+		BackgroundTransparency = 1,
+		Parent = root,
 	})
-	Round(badgeShadow, (BADGE + 70) / 2)
-	New("UIGradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.82),
-			NumberSequenceKeypoint.new(0.55, 0.94),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Rotation = 90,
-		Parent = badgeShadow,
+
+	local cx = WIDTH / 2
+	local outerH = CARD_H + STROKE * 2
+	local holeR = NOTCH_R - STROKE
+
+	-- outline silhouette (underneath)
+	for y = -STROKE, CARD_H + STROKE - 1, ROW do
+		local yo = y + STROKE
+		local yb = outerH - yo
+		local inset = math.max(cornerInset(yo, R_CARD + STROKE), cornerInset(yb, R_CARD + STROKE))
+		local ol, orr = -STROKE + inset, WIDTH + STROKE - inset
+		local gap = 0
+		if y < holeR then
+			gap = math.sqrt(math.max(holeR * holeR - y * y, 0))
+		end
+		local color = gradAt((y + STROKE) / outerH)
+		local props = {
+			BackgroundColor3 = color,
+			Position = UDim2.fromOffset(ol, y),
+			ZIndex = 1,
+			Parent = panel,
+		}
+		if gap <= 1 or cx - gap <= ol + 1 then
+			props.Size = UDim2.fromOffset(orr - ol, ROW)
+			New("Frame", props)
+		else
+			props.Size = UDim2.fromOffset((cx - gap) - ol, ROW)
+			New("Frame", props)
+			local props2 = {
+				BackgroundColor3 = color,
+				Position = UDim2.fromOffset(cx + gap, y),
+				Size = UDim2.fromOffset(orr - (cx + gap), ROW),
+				ZIndex = 1,
+				Parent = panel,
+			}
+			New("Frame", props2)
+		end
+	end
+
+	-- fill silhouette (on top), inset by the stroke width
+	for y = 0, CARD_H - 1, ROW do
+		local inset = math.max(cornerInset(y, R_CARD), cornerInset(CARD_H - y, R_CARD))
+		local il, ir = inset, WIDTH - inset
+		local gap = 0
+		if y < NOTCH_R then
+			gap = math.sqrt(math.max(NOTCH_R * NOTCH_R - y * y, 0))
+		end
+		local color = Theme.Surface:Lerp(Theme.SurfaceDeep, y / CARD_H)
+		local props = {
+			BackgroundColor3 = color,
+			Position = UDim2.fromOffset(il, y),
+			ZIndex = 2,
+			Parent = panel,
+		}
+		if gap <= 1 or cx - gap <= il + 1 then
+			props.Size = UDim2.fromOffset(ir - il, ROW)
+			New("Frame", props)
+		else
+			props.Size = UDim2.fromOffset((cx - gap) - il, ROW)
+			New("Frame", props)
+			local props2 = {
+				BackgroundColor3 = color,
+				Position = UDim2.fromOffset(cx + gap, y),
+				Size = UDim2.fromOffset(ir - (cx + gap), ROW),
+				ZIndex = 2,
+				Parent = panel,
+			}
+			New("Frame", props2)
+		end
+	end
+
+	-- invisible drag surface over the panel (content sits above it)
+	local dragFrame = New("Frame", {
+		Name = "Drag",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = panel,
 	})
 
 	-- Content area ----------------------------------------------------------
@@ -1533,35 +1624,31 @@ function Library:CreateWindow(cfg)
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 4,
-		Parent = card,
+		Parent = panel,
 	})
 
-	-- Logo badge, centred exactly on the card's top edge --------------------
+	-- Logo disc, centred exactly on the panel's top edge -------------------
+	-- Gradient-outlined charcoal disc. The recessed panel edge keeps a
+	-- consistent transparent gap (NOTCH_GAP) around it.
 
 	local badgeShell = New("Frame", {
 		Name = "Badge",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0, OVERHANG),
-		Size = UDim2.fromOffset(BADGE, BADGE),
-		BackgroundColor3 = Theme.White,
+		Size = UDim2.fromOffset(BADGE_D, BADGE_D),
+		BackgroundColor3 = accents.top,
 		ZIndex = 6,
 		Parent = root,
 	})
-	Round(badgeShell, BADGE / 2)
-
-	local badgeRing = New("Frame", {
-		Name = "Ring",
-		Position = UDim2.fromOffset(BADGE_RING, BADGE_RING),
-		Size = UDim2.new(1, -BADGE_RING * 2, 1, -BADGE_RING * 2),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		ZIndex = 7,
-		Parent = badgeShell,
-	})
-	Round(badgeRing, (BADGE - BADGE_RING * 2) / 2)
+	Round(badgeShell, BADGE_D / 2)
 	New("UIGradient", {
-		Color = ColorSequence.new(accents.top, accents.bottom),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, accents.top),
+			ColorSequenceKeypoint.new(0.5, accents.mid),
+			ColorSequenceKeypoint.new(1, accents.bottom),
+		}),
 		Rotation = 90,
-		Parent = badgeRing,
+		Parent = badgeShell,
 	})
 
 	local badgeCore = New("Frame", {
@@ -1569,10 +1656,10 @@ function Library:CreateWindow(cfg)
 		Position = UDim2.fromOffset(STROKE, STROKE),
 		Size = UDim2.new(1, -STROKE * 2, 1, -STROKE * 2),
 		BackgroundColor3 = Theme.Surface,
-		ZIndex = 8,
-		Parent = badgeRing,
+		ZIndex = 7,
+		Parent = badgeShell,
 	})
-	Round(badgeCore, (BADGE - BADGE_RING * 2 - STROKE * 2) / 2)
+	Round(badgeCore, BADGE_D / 2 - STROKE)
 
 	-- Logo image. Default fills the whole core: the uploaded asset ships with
 	-- its own navy disc, and filling the core hides the disc seam so the badge
@@ -1587,7 +1674,7 @@ function Library:CreateWindow(cfg)
 		BackgroundTransparency = 1,
 		Image = logo,
 		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 9,
+		ZIndex = 8,
 		Parent = badgeCore,
 	})
 
@@ -1634,7 +1721,7 @@ function Library:CreateWindow(cfg)
 	-- Status bar -------------------------------------------------------------
 
 	local barY = OVERHANG + CARD_H + GAP
-	GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents.top, accents.bottom, 1)
+	GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
 	local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Theme.Surface, 2)
 
 	-- Avatar medallion: gradient stroke → white ring → headshot
@@ -1649,7 +1736,11 @@ function Library:CreateWindow(cfg)
 	})
 	Round(avatarShell, AVATAR / 2)
 	New("UIGradient", {
-		Color = ColorSequence.new(accents.top, accents.bottom),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, accents.top),
+			ColorSequenceKeypoint.new(0.5, accents.mid),
+			ColorSequenceKeypoint.new(1, accents.bottom),
+		}),
 		Rotation = 90,
 		Parent = avatarShell,
 	})
@@ -1717,7 +1808,7 @@ function Library:CreateWindow(cfg)
 	local statusName = Label({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "Username : " .. (cfg.Username or LocalPlayer.Name),
+		Text = "Username: " .. (cfg.Username or LocalPlayer.Name),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1726,7 +1817,7 @@ function Library:CreateWindow(cfg)
 	local statusId = Label({
 		LayoutOrder = 3,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
+		Text = "ID: " .. tostring(cfg.UserId or LocalPlayer.UserId),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1735,7 +1826,7 @@ function Library:CreateWindow(cfg)
 	local statusLine = Label({
 		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "Status : " .. (cfg.Status or "No-Key Script"),
+		Text = "Status: " .. (cfg.Status or "No-Key Script"),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1793,7 +1884,7 @@ function Library:CreateWindow(cfg)
 
 	-- Dragging -----------------------------------------------------------------
 
-	MakeDraggable(card, root, uiScale)
+	MakeDraggable(dragFrame, root, uiScale)
 	MakeDraggable(bar, root, uiScale)
 	MakeDraggable(badgeShell, root, uiScale)
 
@@ -1819,7 +1910,11 @@ function Library:CreateWindow(cfg)
 	})
 	Round(launcherRing, 24)
 	New("UIGradient", {
-		Color = ColorSequence.new(accents.top, accents.bottom),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, accents.top),
+			ColorSequenceKeypoint.new(0.5, accents.mid),
+			ColorSequenceKeypoint.new(1, accents.bottom),
+		}),
 		Rotation = 90,
 		Parent = launcherRing,
 	})
@@ -1881,13 +1976,13 @@ function Library:CreateWindow(cfg)
 	function window:SetStatus(statusCfg)
 		statusCfg = statusCfg or {}
 		if statusCfg.Username then
-			statusName.Text = "Username : " .. tostring(statusCfg.Username)
+			statusName.Text = "Username: " .. tostring(statusCfg.Username)
 		end
 		if statusCfg.UserId then
-			statusId.Text = "ID : " .. tostring(statusCfg.UserId)
+			statusId.Text = "ID: " .. tostring(statusCfg.UserId)
 		end
 		if statusCfg.Status then
-			statusLine.Text = "Status : " .. tostring(statusCfg.Status)
+			statusLine.Text = "Status: " .. tostring(statusCfg.Status)
 		end
 		if statusCfg.Title then
 			statusTitle.Text = tostring(statusCfg.Title)
@@ -1936,7 +2031,10 @@ function Library:CreateWindow(cfg)
 		})
 		Round(tabThumb, 6)
 		New("UIGradient", {
-			Color = ColorSequence.new(accents.top, accents.bottom),
+			Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, accents.top),
+			ColorSequenceKeypoint.new(1, accents.mid),
+		}),
 			Rotation = 0,
 			Parent = tabThumb,
 		})
