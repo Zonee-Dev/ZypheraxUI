@@ -27,8 +27,11 @@ local DEFAULT_LOGO = "rbxassetid://106764279090045"
 -- Measured tokens -------------------------------------------------------
 
 local Theme = {
-	-- Gradient used by every stroke in the reference (per-element, vertical)
-	StrokeTop = Color3.fromRGB(78, 151, 231),
+	-- Gradient used by every stroke in the reference (per-element, vertical).
+	-- NOTE: keep this a gradient. Replacing the shells below with a flat
+	-- UIStroke is exactly what makes the window look "roblox default".
+	StrokeTop = Color3.fromRGB(88, 163, 244),
+	StrokeMid = Color3.fromRGB(45, 98, 173),
 	StrokeBottom = Color3.fromRGB(12, 45, 115),
 
 	-- Surfaces, sampled from the frame
@@ -64,7 +67,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 14
-local BAR_H = 71
+local BAR_H = 74
 local OVERHANG = 72                 -- half of the badge sits above the card
 local TOTAL_H = CARD_H + GAP + BAR_H
 
@@ -73,7 +76,6 @@ local STROKE = 2
 
 local BADGE = 144                   -- outer diameter of the logo badge
 local BADGE_RING = 10               -- white ring thickness
-local BADGE_LOGO = 62               -- logo image size
 local BADGE_SHADOW_H = 46
 
 local AVATAR = 54
@@ -81,15 +83,14 @@ local AVATAR_IMG = 38
 local AVATAR_MARGIN = 10
 
 local INFO_X = 80
-local INFO_LINE = 13                -- line pitch of the identity block
+local INFO_BOX = 14                 -- line box height of the identity block
+local INFO_GAP = 2                  -- breathing room between the lines
+local INFO_TITLE = 13
 local INFO_SIZE = 12
 
 local DISCORD_W = 110
-local DISCORD_H = 40
+local DISCORD_H = 38
 local DISCORD_MARGIN = 12
-
-local LENS_W = 290
-local LENS_H = 14
 
 local CONTENT_X = 16
 local CONTENT_TOP = 78              -- clears the badge overhang inside the card
@@ -137,19 +138,28 @@ end
 
 -- The signature look: a 2px stroke that falls from azure to deep navy.
 -- Implemented as a slightly larger gradient shell with the fill inset on top,
--- because UIStroke cannot take a gradient.
+-- because UIStroke cannot take a gradient. If UIGradient ever fails on an
+-- executor, the shell falls back to the flat top colour instead of white.
 local function GradientShell(parent, name, position, size, radius, top, bottom, zIndex)
+	top = top or Theme.StrokeTop
+	bottom = bottom or Theme.StrokeBottom
+	local mid = top:Lerp(bottom, 0.5)
+
 	local shell = New("Frame", {
 		Name = name .. "Shell",
 		Position = UDim2.new(position.X.Scale, position.X.Offset - STROKE, position.Y.Scale, position.Y.Offset - STROKE),
 		Size = UDim2.new(size.X.Scale, size.X.Offset + STROKE * 2, size.Y.Scale, size.Y.Offset + STROKE * 2),
-		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundColor3 = top,
 		ZIndex = zIndex or 1,
 		Parent = parent,
 	})
 	Round(shell, radius + STROKE)
 	New("UIGradient", {
-		Color = ColorSequence.new(top or Theme.StrokeTop, bottom or Theme.StrokeBottom),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, top),
+			ColorSequenceKeypoint.new(0.5, mid),
+			ColorSequenceKeypoint.new(1, bottom),
+		}),
 		Rotation = 90,
 		Parent = shell,
 	})
@@ -1564,11 +1574,16 @@ function Library:CreateWindow(cfg)
 	})
 	Round(badgeCore, (BADGE - BADGE_RING * 2 - STROKE * 2) / 2)
 
+	-- Logo image. Default fills the whole core: the uploaded asset ships with
+	-- its own navy disc, and filling the core hides the disc seam so the badge
+	-- reads as one curved medallion. Pass cfg.LogoSize (px) if your logo is a
+	-- transparent glyph instead.
+	local logoSize = cfg.LogoSize or 0
 	New("ImageLabel", {
 		Name = "Logo",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(BADGE_LOGO, BADGE_LOGO),
+		Size = logoSize > 0 and UDim2.fromOffset(logoSize, logoSize) or UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Image = logo,
 		ScaleType = Enum.ScaleType.Fit,
@@ -1576,28 +1591,45 @@ function Library:CreateWindow(cfg)
 		Parent = badgeCore,
 	})
 
-	-- White lens glow in the gap --------------------------------------------
-
-	local lens = New("Frame", {
-		Name = "Lens",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, OVERHANG + CARD_H + GAP / 2),
-		Size = UDim2.fromOffset(LENS_W, LENS_H),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		ZIndex = 0,
-		Parent = root,
-	})
-	Round(lens, LENS_H / 2)
-	New("UIGradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.96),
-			NumberSequenceKeypoint.new(0.24, 0.10),
-			NumberSequenceKeypoint.new(0.5, 0),
-			NumberSequenceKeypoint.new(0.76, 0.10),
-			NumberSequenceKeypoint.new(1, 0.96),
-		}),
-		Parent = lens,
-	})
+	-- White lens glow in the gap. Built from five stacked pills so the shape
+	-- reads as a soft CURVED glow (ellipse-ish both ways), never as a line:
+	-- widths taper vertically, alpha fades horizontally on every band.
+	local lensBands = {
+		{ w = 196, h = 3, a = 0.22 },
+		{ w = 258, h = 3, a = 0.50 },
+		{ w = 290, h = 4, a = 0.95 },
+		{ w = 258, h = 3, a = 0.50 },
+		{ w = 196, h = 3, a = 0.22 },
+	}
+	local lensY = OVERHANG + CARD_H + GAP / 2
+	local lensTop = lensY - 8
+	for index, band in ipairs(lensBands) do
+		local offset = 0
+		for i = 1, index - 1 do
+			offset += lensBands[i].h
+		end
+		local piece = New("Frame", {
+			Name = "Lens" .. index,
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, lensTop + offset),
+			Size = UDim2.fromOffset(band.w, band.h),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 1 - band.a,
+			ZIndex = 0,
+			Parent = root,
+		})
+		Round(piece, band.h / 2)
+		New("UIGradient", {
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.16, 0.25),
+				NumberSequenceKeypoint.new(0.5, 0),
+				NumberSequenceKeypoint.new(0.84, 0.25),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Parent = piece,
+		})
+	end
 
 	-- Status bar -------------------------------------------------------------
 
@@ -1666,7 +1698,7 @@ function Library:CreateWindow(cfg)
 		Parent = bar,
 	})
 	New("UIListLayout", {
-		Padding = UDim.new(0, INFO_LINE - INFO_SIZE),
+		Padding = UDim.new(0, INFO_GAP),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Parent = info,
@@ -1674,17 +1706,17 @@ function Library:CreateWindow(cfg)
 
 	local statusTitle = Label({
 		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, INFO_SIZE),
+		Size = UDim2.new(1, 0, 0, INFO_BOX),
 		Weight = "SemiBold",
 		Text = "USER STATUS",
-		TextSize = INFO_SIZE,
+		TextSize = INFO_TITLE,
 		TextColor3 = Theme.Text,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = info,
 	})
 	local statusName = Label({
 		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, INFO_SIZE),
+		Size = UDim2.new(1, 0, 0, INFO_BOX),
 		Text = "Username : " .. (cfg.Username or LocalPlayer.Name),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
@@ -1693,7 +1725,7 @@ function Library:CreateWindow(cfg)
 	})
 	local statusId = Label({
 		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, INFO_SIZE),
+		Size = UDim2.new(1, 0, 0, INFO_BOX),
 		Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
@@ -1702,7 +1734,7 @@ function Library:CreateWindow(cfg)
 	})
 	local statusLine = Label({
 		LayoutOrder = 4,
-		Size = UDim2.new(1, 0, 0, INFO_SIZE),
+		Size = UDim2.new(1, 0, 0, INFO_BOX),
 		Text = "Status : " .. (cfg.Status or "No-Key Script"),
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
@@ -1721,7 +1753,7 @@ function Library:CreateWindow(cfg)
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			Text = "discord",
 			FontFace = Typo.Medium,
-			TextSize = 14,
+			TextSize = 13,
 			TextColor3 = Theme.DiscordText,
 			ZIndex = 3,
 			Parent = bar,
@@ -1801,7 +1833,7 @@ function Library:CreateWindow(cfg)
 	New("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(26, 26),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Image = logo,
 		ScaleType = Enum.ScaleType.Fit,
