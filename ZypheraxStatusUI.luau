@@ -1540,11 +1540,14 @@ function Library:CreateWindow(cfg)
 	local outerH = CARD_H + STROKE * 2
 	local holeR = NOTCH_R - STROKE
 
-	-- outline silhouette (underneath)
+	-- outline silhouette (underneath). Rows are sampled "inside-safe": a row
+	-- never paints outside the true curve, so no teeth stick into transparent
+	-- space. The smooth circle patches below repaint every curved zone with
+	-- renderer-antialiased geometry, hiding the slice steps completely.
 	for y = -STROKE, CARD_H + STROKE - 1, ROW do
 		local yo = y + STROKE
-		local yb = outerH - yo
-		local inset = math.max(cornerInset(yo, R_CARD + STROKE), cornerInset(yb, R_CARD + STROKE))
+		local yb = outerH - yo - ROW
+		local inset = math.max(cornerInset(yo, R_CARD + STROKE), cornerInset(math.max(yb, 0), R_CARD + STROKE))
 		local ol, orr = -STROKE + inset, WIDTH + STROKE - inset
 		local gap = 0
 		if y < holeR then
@@ -1574,9 +1577,9 @@ function Library:CreateWindow(cfg)
 		end
 	end
 
-	-- fill silhouette (on top), inset by the stroke width
+	-- fill silhouette (on top), inset by the stroke width, inside-safe
 	for y = 0, CARD_H - 1, ROW do
-		local inset = math.max(cornerInset(y, R_CARD), cornerInset(CARD_H - y, R_CARD))
+		local inset = math.max(cornerInset(y, R_CARD), cornerInset(math.max(CARD_H - y - ROW, 0), R_CARD))
 		local il, ir = inset, WIDTH - inset
 		local gap = 0
 		if y < NOTCH_R then
@@ -1604,6 +1607,125 @@ function Library:CreateWindow(cfg)
 			}
 			New("Frame", props2)
 		end
+	end
+
+	-- Smooth curve patches --------------------------------------------------
+	-- Real circle geometry (renderer-antialiased) layered over every sliced
+	-- zone: the notch outline ring, the notch fill band and the four corner
+	-- quadrants. These repaint the curved boundaries with true arcs, so no
+	-- slice step can ever show ("bergerigi" eliminated).
+
+	local function clipFrame(name, x, y, w, h, z)
+		return New("Frame", {
+			Name = name,
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(w, h),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = z,
+			Parent = panel,
+		})
+	end
+
+	-- notch outline ring: radial band [NOTCH_R-STROKE, NOTCH_R]
+	local noClip = clipFrame("NotchOutlineClip", cx - NOTCH_R - 4, 0, (NOTCH_R + 4) * 2, NOTCH_R + 4, 1)
+	local noRing = New("Frame", {
+		Position = UDim2.fromOffset(cx - NOTCH_R, -NOTCH_R),
+		Size = UDim2.fromOffset(NOTCH_R * 2, NOTCH_R * 2),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = noClip,
+	})
+	Round(noRing, NOTCH_R)
+	New("UIStroke", {
+		Color = Color3.new(1, 1, 1),
+		Thickness = STROKE,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = noRing,
+	})
+	New("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, gradAt(STROKE / outerH)),
+			ColorSequenceKeypoint.new(0.5, gradAt(STROKE / outerH)),
+			ColorSequenceKeypoint.new(1, gradAt((NOTCH_R + STROKE) / outerH)),
+		}),
+		Rotation = 90,
+		Parent = noRing,
+	})
+
+	-- notch fill band: radial band [NOTCH_R, NOTCH_R+3], flat surface tone
+	local nfClip = clipFrame("NotchFillClip", cx - NOTCH_R - 5, 0, (NOTCH_R + 5) * 2, NOTCH_R + 5, 2)
+	local nfRing = New("Frame", {
+		Position = UDim2.fromOffset(cx - NOTCH_R - 3, -NOTCH_R - 3),
+		Size = UDim2.fromOffset((NOTCH_R + 3) * 2, (NOTCH_R + 3) * 2),
+		BackgroundTransparency = 1,
+		ZIndex = 2,
+		Parent = nfClip,
+	})
+	Round(nfRing, NOTCH_R + 3)
+	New("UIStroke", {
+		Color = Theme.Surface,
+		Thickness = 3,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = nfRing,
+	})
+
+	-- four corner quadrants: fill quarter-disc + outline quarter-ring
+	local cornerDefs = {
+		{ cx = R_CARD, cy = R_CARD, top = true },
+		{ cx = WIDTH - R_CARD, cy = R_CARD, top = true },
+		{ cx = R_CARD, cy = CARD_H - R_CARD, top = false },
+		{ cx = WIDTH - R_CARD, cy = CARD_H - R_CARD, top = false },
+	}
+	for _, cdef in ipairs(cornerDefs) do
+		local qx = cdef.cx < cx and 0 or WIDTH - R_CARD
+		local qy = cdef.top and 0 or CARD_H - R_CARD
+
+		local fillClip = clipFrame("CornerFillClip", qx, qy, R_CARD, R_CARD, 2)
+		local disc = New("Frame", {
+			Position = UDim2.fromOffset(cdef.cx - R_CARD, cdef.cy - R_CARD),
+			Size = UDim2.fromOffset(R_CARD * 2, R_CARD * 2),
+			BackgroundColor3 = cdef.top and Theme.Surface or Theme.SurfaceDeep,
+			ZIndex = 2,
+			Parent = fillClip,
+		})
+		Round(disc, R_CARD)
+
+		local orad = R_CARD + STROKE
+		local outClip = clipFrame("CornerOutlineClip", cdef.cx - orad, cdef.cy - orad, orad, orad, 1)
+		local ring = New("Frame", {
+			Position = UDim2.fromOffset(cdef.cx - orad, cdef.cy - orad),
+			Size = UDim2.fromOffset(orad * 2, orad * 2),
+			BackgroundTransparency = 1,
+			ZIndex = 1,
+			Parent = outClip,
+		})
+		Round(ring, orad)
+		New("UIStroke", {
+			Color = Color3.new(1, 1, 1),
+			Thickness = STROKE,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Parent = ring,
+		})
+		local cAt, cMid, cBot
+		if cdef.top then
+			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
+			cMid = gradAt((cdef.cy + STROKE) / outerH)
+			cBot = cMid
+		else
+			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
+			cMid = gradAt((cdef.cy + STROKE) / outerH)
+			cBot = gradAt(1)
+		end
+		New("UIGradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, cAt),
+				ColorSequenceKeypoint.new(0.5, cMid),
+				ColorSequenceKeypoint.new(1, cBot),
+			}),
+			Rotation = 90,
+			Parent = ring,
+		})
 	end
 
 	-- invisible drag surface over the panel (content sits above it)
