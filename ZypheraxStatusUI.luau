@@ -48,7 +48,8 @@ local Typo = {
 	SemiBold = Font.new(FONT_FAMILY, Enum.FontWeight.SemiBold),
 }
 
-local WIDTH, HEADER, CARD_H, GAP, BAR_H = 420, 72, 340, 8, 72
+-- Diubah agar proporsional dengan gambar
+local WIDTH, CARD_H, GAP, BAR_H = 420, 320, 10, 80
 local TOTAL_H = CARD_H + GAP + BAR_H
 local TAB_GAP = 2
 
@@ -150,7 +151,6 @@ local function ViewportScale()
 end
 
 -- Icon glyph: uses an uploaded asset when set, otherwise a drawn fallback
--- with a 2px stroke. Returns the holder and a paint(color, duration) function.
 local function Glyph(parent, name, color, size)
 	local holder = New("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -213,7 +213,6 @@ local function Glyph(parent, name, color, size)
 	return holder, paint
 end
 
--- Input listeners exist only while a drag is active, so nothing leaks.
 local function MakeDraggable(handle, target, uiScale)
 	local state = { Moved = false }
 
@@ -251,7 +250,6 @@ local function MakeDraggable(handle, target, uiScale)
 	return state
 end
 
--- Very soft ambient shadow placed behind a panel (restrained elevation).
 local function Elevation(parent, position, size, radius)
 	local shadow = New("Frame", {
 		Name = "Elevation",
@@ -322,7 +320,6 @@ function Library:Notify(cfg)
 	Round(toast, Radius.MD)
 	Stroke(toast, Theme.Border, 1)
 
-	-- Status marker on the leading edge
 	New("Frame", {
 		Size = UDim2.new(0, 3, 1, 0),
 		BackgroundColor3 = accent,
@@ -389,7 +386,6 @@ function Library:Notify(cfg)
 	task.delay(duration, dismiss)
 end
 
--- Compatibility with the previous library's call signature.
 function Library:SetNotification(cfg)
 	return self:Notify({
 		Title = cfg.Title or cfg[1],
@@ -446,7 +442,6 @@ local function BuildItems(page, accent)
 		end
 	end
 
-	-- Full-row hit target with consistent hover / pressed states.
 	local function Hit(row)
 		local hit = New("TextButton", {
 			BackgroundTransparency = 1,
@@ -718,34 +713,6 @@ end
 
 -- Window ----------------------------------------------------------------
 
--- Ghost icon button (28px, small radius). "close" gets a destructive hover.
-local function IconButton(parent, position, kind)
-	local destructive = kind == "close"
-	local button = New("TextButton", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = position,
-		Size = UDim2.fromOffset(28, 28),
-		BackgroundColor3 = destructive and Theme.Danger or Theme.Hover,
-		BackgroundTransparency = 1,
-		Text = "",
-		AutoButtonColor = false,
-		Parent = parent,
-	})
-	Round(button, Radius.SM)
-
-	local _, paint = Glyph(button, destructive and "close" or "minimize", Theme.TextSecondary, 16)
-
-	button.MouseEnter:Connect(function()
-		Tween(button, 0.12, { BackgroundTransparency = destructive and 0.85 or 0 })
-		paint(destructive and Theme.Danger or Theme.Text, 0.12)
-	end)
-	button.MouseLeave:Connect(function()
-		Tween(button, 0.12, { BackgroundTransparency = 1 })
-		paint(Theme.TextSecondary, 0.12)
-	end)
-	return button
-end
-
 function Library:CreateWindow(cfg)
 	cfg = cfg or {}
 	local title = Opt(cfg, 1, "Title", "ZYPHERAX HUB")
@@ -784,7 +751,7 @@ function Library:CreateWindow(cfg)
 	})
 	local uiScale = New("UIScale", { Parent = root })
 
-	-- Card ---------------------------------------------------------------
+	-- Card Utama ---------------------------------------------------------
 	Elevation(root, UDim2.fromOffset(0, 0), Vector2.new(WIDTH, CARD_H), Radius.LG)
 
 	local card = New("Frame", {
@@ -795,130 +762,58 @@ function Library:CreateWindow(cfg)
 		Parent = root,
 	})
 	Round(card, Radius.LG)
-	Stroke(card, Theme.Border, 1)
+	Stroke(card, Theme.Accent, 2) -- Border biru sesuai gambar
 
-	local dragZone = New("Frame", {
-		Name = "DragZone",
-		Size = UDim2.new(1, 0, 0, HEADER),
-		BackgroundTransparency = 1,
-		Parent = card,
-	})
-
-	-- Recessed logo well: inset surface, fine border, soft inner shadow.
-	local well = New("Frame", {
-		Name = "LogoWell",
-		Position = UDim2.fromOffset(16, 12),
-		Size = UDim2.fromOffset(48, 48),
-		BackgroundColor3 = Theme.Inset,
+	-- Logo Melingkar di Tengah Atas (Overlapping) -------------------------
+	local logoCircle = New("Frame", {
+		Name = "LogoCircle",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, 0), -- Di tengah atas card
+		Size = UDim2.fromOffset(86, 86),
+		BackgroundColor3 = Theme.Surface,
 		BorderSizePixel = 0,
-		Parent = card,
+		ZIndex = 2,
+		Parent = root,
 	})
-	Round(well, Radius.MD)
-	Stroke(well, Theme.Border, 1)
+	Round(logoCircle, 43)
+	Stroke(logoCircle, Color3.fromRGB(255, 255, 255), 4) -- Ring putih luar
 
-	local innerShadow = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 14),
-		BackgroundColor3 = Color3.new(0, 0, 0),
+	-- Ring biru dalam
+	local innerRing = New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.85, 0.85),
+		BackgroundColor3 = Theme.Canvas, -- Warna gelap di dalam
 		BorderSizePixel = 0,
-		Parent = well,
+		ZIndex = 3,
+		Parent = logoCircle,
 	})
-	Round(innerShadow, Radius.MD)
-	New("UIGradient", {
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.55),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Parent = innerShadow,
-	})
+	Round(innerRing, 36)
+	Stroke(innerRing, Theme.Accent, 2) -- Ring biru dalam
 
+	-- Gambar Logo
 	New("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(32, 32),
+		Size = UDim2.fromOffset(45, 45),
 		BackgroundTransparency = 1,
 		Image = logo,
 		ScaleType = Enum.ScaleType.Fit,
-		Parent = well,
+		ZIndex = 4,
+		Parent = innerRing,
 	})
 
-	-- Title block
-	local titleBlock = New("Frame", {
-		Position = UDim2.fromOffset(76, 0),
-		Size = UDim2.new(1, -(76 + 16 + 28 + TAB_GAP * 2 + 28 + 12), 0, HEADER),
-		BackgroundTransparency = 1,
-		Parent = card,
-	})
-	New("UIListLayout", {
-		Padding = UDim.new(0, 2),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Parent = titleBlock,
-	})
-	Label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 20),
-		Weight = "SemiBold",
-		Text = title,
-		TextSize = 15,
-		TextColor3 = Theme.Text,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Parent = titleBlock,
-	})
-	Label({
-		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, 16),
-		Text = subtitle,
-		TextSize = 12,
-		TextColor3 = Theme.TextSecondary,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Visible = subtitle ~= "",
-		Parent = titleBlock,
-	})
-
-	local closeButton = IconButton(card, UDim2.new(1, -16, 0, 22), "close")
-	local minimizeButton = IconButton(card, UDim2.new(1, -(16 + 28 + TAB_GAP * 2), 0, 22), "minimize")
-
-	-- Header divider
-	New("Frame", {
-		Position = UDim2.fromOffset(0, HEADER),
-		Size = UDim2.new(1, 0, 0, 1),
-		BackgroundColor3 = Theme.Border,
-		BorderSizePixel = 0,
-		Parent = card,
-	})
-
-	-- Segmented tabs (inset track, raised selected segment)
-	local tabStrip = New("Frame", {
-		Position = UDim2.fromOffset(16, HEADER + 13),
-		Size = UDim2.new(1, -32, 0, 32),
-		BackgroundColor3 = Theme.Inset,
-		BorderSizePixel = 0,
-		Parent = card,
-	})
-	Round(tabStrip, Radius.MD)
-	Stroke(tabStrip, Theme.Border, 1)
-	New("UIPadding", {
-		PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 2),
-		PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 2),
-		Parent = tabStrip,
-	})
-	New("UIListLayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, TAB_GAP),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Parent = tabStrip,
-	})
-
+	-- Area Konten Utama ---------------------------------------------------
 	local content = New("Frame", {
-		Position = UDim2.fromOffset(16, HEADER + 57),
-		Size = UDim2.new(1, -32, 1, -(HEADER + 57 + 12)),
+		Position = UDim2.fromOffset(16, 50), -- Memberi ruang untuk logo di atas
+		Size = UDim2.new(1, -32, 1, -66),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
+		ZIndex = 1,
 		Parent = card,
 	})
 
-	-- Status bar ---------------------------------------------------------
+	-- Status Bar ----------------------------------------------------------
 	local barY = CARD_H + GAP
 	Elevation(root, UDim2.fromOffset(0, barY), Vector2.new(WIDTH, BAR_H), Radius.LG)
 
@@ -931,18 +826,18 @@ function Library:CreateWindow(cfg)
 		Parent = root,
 	})
 	Round(bar, Radius.LG)
-	Stroke(bar, Theme.Border, 1)
+	Stroke(bar, Theme.Accent, 2) -- Border biru
 
 	local avatar = New("ImageLabel", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 16, 0.5, 0),
-		Size = UDim2.fromOffset(40, 40),
+		Size = UDim2.fromOffset(52, 52),
 		BackgroundColor3 = Theme.Inset,
 		BorderSizePixel = 0,
 		Image = "",
 		Parent = bar,
 	})
-	Round(avatar, Radius.MD)
+	Round(avatar, 26) -- Avatar bulat
 	Stroke(avatar, Theme.Border, 1)
 
 	task.spawn(function()
@@ -956,124 +851,73 @@ function Library:CreateWindow(cfg)
 	end)
 
 	local info = New("Frame", {
-		Position = UDim2.fromOffset(68, 0),
-		Size = UDim2.new(1, -(68 + (discord and 124 or 16)), 1, 0),
+		Position = UDim2.fromOffset(80, 0),
+		Size = UDim2.new(1, -(80 + (discord and 130 or 16)), 1, 0),
 		BackgroundTransparency = 1,
 		Parent = bar,
 	})
 	New("UIListLayout", {
-		Padding = UDim.new(0, 1),
+		Padding = UDim.new(0, 3),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Parent = info,
 	})
 
+	-- Teks Status sesuai gambar
 	Label({
 		LayoutOrder = 1,
 		Size = UDim2.new(1, 0, 0, 16),
 		Weight = "SemiBold",
-		Text = cfg.Username or LocalPlayer.Name,
+		Text = "USER STATUS",
 		TextSize = 13,
-		TextColor3 = Theme.Text,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = info,
 	})
 	Label({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, 14),
-		RichText = true,
-		Text = string.format(
-			'<font color="#%s">ID</font>  %s',
-			Theme.TextTertiary:ToHex(),
-			tostring(cfg.UserId or LocalPlayer.UserId)
-		),
+		Text = "Username : " .. (cfg.Username or LocalPlayer.Name),
 		TextSize = 12,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = info,
 	})
-
-	local statusRow = New("Frame", {
+	Label({
 		LayoutOrder = 3,
 		Size = UDim2.new(1, 0, 0, 14),
-		BackgroundTransparency = 1,
-		Parent = info,
-	})
-	local statusDot = New("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		Size = UDim2.fromOffset(6, 6),
-		BackgroundColor3 = Theme.Success,
-		BorderSizePixel = 0,
-		Parent = statusRow,
-	})
-	Round(statusDot, 3)
-	local statusLabel = Label({
-		Position = UDim2.fromOffset(12, 0),
-		Size = UDim2.new(1, -12, 1, 0),
-		Weight = "Medium",
+		Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
 		TextSize = 12,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Parent = statusRow,
+		Parent = info,
 	})
-
-	function window:SetStatus(text, color)
-		statusLabel.Text = text
-		statusDot.BackgroundColor3 = color or Theme.Success
-	end
-	window:SetStatus(cfg.Status or "No-Key Script", cfg.StatusColor)
+	Label({
+		LayoutOrder = 4,
+		Size = UDim2.new(1, 0, 0, 14),
+		Text = "Status : " .. (cfg.Status or "No-Key Script"),
+		TextSize = 12,
+		TextColor3 = Theme.TextSecondary,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = info,
+	})
 
 	if discord then
 		local button = New("TextButton", {
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -16, 0.5, 0),
-			Size = UDim2.fromOffset(96, 32),
+			Size = UDim2.fromOffset(110, 38),
 			BackgroundColor3 = Theme.Discord,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
-			Text = "",
+			Text = "discord",
+			FontFace = Typo.Medium,
+			TextSize = 14,
+			TextColor3 = Color3.fromRGB(255, 255, 255),
 			Parent = bar,
 		})
-		Round(button, Radius.SM)
+		Round(button, 19) -- Membuat tombol pill
 		local press = New("UIScale", { Parent = button })
-
-		local inner = New("Frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Parent = button,
-		})
-		New("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Parent = inner,
-		})
-
-		local discordIcon = Library.Icons.discord
-		if discordIcon and discordIcon ~= "" then
-			New("ImageLabel", {
-				LayoutOrder = 1,
-				Size = UDim2.fromOffset(16, 16),
-				BackgroundTransparency = 1,
-				Image = discordIcon,
-				ImageColor3 = Color3.fromRGB(255, 255, 255),
-				ScaleType = Enum.ScaleType.Fit,
-				Parent = inner,
-			})
-		end
-		Label({
-			LayoutOrder = 2,
-			Size = UDim2.fromOffset(0, 16),
-			AutomaticSize = Enum.AutomaticSize.X,
-			Weight = "SemiBold",
-			Text = "Discord",
-			TextSize = 12,
-			TextColor3 = Color3.fromRGB(255, 255, 255),
-			Parent = inner,
-		})
 
 		button.MouseEnter:Connect(function()
 			Tween(button, 0.12, { BackgroundColor3 = Theme.DiscordHover })
@@ -1098,10 +942,17 @@ function Library:CreateWindow(cfg)
 	end
 
 	-- Dragging
+	local dragZone = New("Frame", {
+		Name = "DragZone",
+		Size = UDim2.new(1, 0, 0, 50),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = card,
+	})
 	MakeDraggable(dragZone, root, uiScale)
 	MakeDraggable(bar, root, uiScale)
 
-	-- Launcher shown while minimized
+	-- Launcher
 	local launcher = New("ImageButton", {
 		Name = "Launcher",
 		Position = UDim2.new(0, 20, 0.5, -24),
@@ -1151,12 +1002,6 @@ function Library:CreateWindow(cfg)
 		Library.Unloaded = true
 	end
 
-	minimizeButton.Activated:Connect(function()
-		window:SetVisible(false)
-	end)
-	closeButton.Activated:Connect(function()
-		window:Destroy()
-	end)
 	launcher.Activated:Connect(function()
 		if not launcherDrag.Moved then
 			window:SetVisible(true)
@@ -1185,11 +1030,6 @@ function Library:CreateWindow(cfg)
 			local active = tab == selected
 			tab.Active = active
 			tab.Page.Visible = active
-			Tween(tab.Button, 0.15, {
-				BackgroundTransparency = active and 0 or 1,
-				TextColor3 = active and Theme.Text or Theme.TextSecondary,
-			})
-			Tween(tab.Stroke, 0.15, { Transparency = active and 0 or 1 })
 		end
 	end
 
@@ -1217,43 +1057,10 @@ function Library:CreateWindow(cfg)
 		New("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
 		New("UIPadding", { PaddingRight = UDim.new(0, 8), Parent = page })
 
-		local button = New("TextButton", {
-			LayoutOrder = #tabs + 1,
-			BackgroundColor3 = Theme.Raised,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			FontFace = Typo.Medium,
-			Text = name,
-			TextSize = 12,
-			TextColor3 = Theme.TextSecondary,
-			Parent = tabStrip,
-		})
-		Round(button, Radius.SM)
-		local buttonStroke = Stroke(button, Theme.BorderStrong, 1, 1)
-
-		local tab = { Page = page, Button = button, Stroke = buttonStroke, Active = false }
+		local tab = { Page = page, Active = false }
 		table.insert(tabs, tab)
 
-		local count = #tabs
-		for _, existing in ipairs(tabs) do
-			existing.Button.Size = UDim2.new(1 / count, -(TAB_GAP * (count - 1)) / count, 1, 0)
-		end
-
-		button.MouseEnter:Connect(function()
-			if not tab.Active then
-				Tween(button, 0.12, { TextColor3 = Theme.Text })
-			end
-		end)
-		button.MouseLeave:Connect(function()
-			if not tab.Active then
-				Tween(button, 0.12, { TextColor3 = Theme.TextSecondary })
-			end
-		end)
-		button.Activated:Connect(function()
-			selectTab(tab)
-		end)
-		if count == 1 then
+		if #tabs == 1 then
 			selectTab(tab)
 		end
 
