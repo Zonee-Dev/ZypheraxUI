@@ -1316,7 +1316,7 @@ local function BuildItems(page, accents, ctx)
                 connection = UserInputService.InputBegan:Connect(function(input, processed)
                     if processed then
                         return
-                    end
+                   	end
                     if input.UserInputType == Enum.UserInputType.Keyboard then
                         if input.KeyCode == Enum.KeyCode.Backspace then
                             obj:Set(Enum.KeyCode.Unknown)
@@ -2417,33 +2417,48 @@ function Library:CreateWindow(cfg)
         end
     end))
 
-    -- Tabs: strip pill bersih (shell+inner), thumb pill tanpa stroke ----
+    -- Tabs ----------------------------------------------------------------
+    -- Strip pill (shell+inner, outline atas/bawah lebih tebal), scrollbar
+    -- pill gradasi biru KECIL di BAWAH strip yang mengikuti tab dipilih.
 
     local tabs = {}
     local selectedTab
-    local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder
+    local tabStrip, tabScroll, tabTrack, btnRow, pagesHolder
+    local underClip, tabUnderline
 
     local STRIP_H = 30
-    local STRIP_OUT = 2        -- ketebalan outline pill luar
+    local STRIP_OUT_X = 2
+    local STRIP_OUT_Y = 3      -- outline atas/bawah sedikit lebih tebal
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local TAB_VISIBLE = 4
 
-    local function layoutThumb(animate)
-        if not (tabThumb and selectedTab) then
+    local UNDER_H = 3          -- tinggi scrollbar pill
+    local UNDER_Y = STRIP_H + 3
+    local UNDER_INSET = 12     -- pill scrollbar = TAB_W - 2*UNDER_INSET
+
+    local function updateUnderline(animate)
+        if not (tabStrip and selectedTab and tabUnderline) then
             return
         end
         local idx = (selectedTab.Order or 1) - 1
-        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        local goalPosition = UDim2.fromOffset(x, 0)
-        local goalSize = UDim2.new(0, TAB_W, 1, 0)
-        tabThumb.Visible = true
+        local baseX = STRIP_OUT_X + 2 + TRACK_PAD
+        local tabX = baseX + idx * (TAB_W + STRIP_GAP) - tabScroll.CanvasPosition.X
+        local pillW = TAB_W - UNDER_INSET * 2
+        local stripW = tabStrip.Size.X.Offset
+
+        local onScreen = (tabX + TAB_W > 0) and (tabX < stripW)
+        tabUnderline.Visible = onScreen
+        if not onScreen then
+            return
+        end
+
+        local x = math.clamp(tabX + UNDER_INSET, 0, stripW - pillW)
+        local goal = UDim2.fromOffset(x, 0)
         if animate then
-            Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
+            Tween(tabUnderline, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
-            tabThumb.Position = goalPosition
-            tabThumb.Size = goalSize
+            tabUnderline.Position = goal
         end
     end
 
@@ -2463,12 +2478,11 @@ function Library:CreateWindow(cfg)
                 })
             end
         end
-        layoutThumb(animate)
+        updateUnderline(animate)
         applySearch()
     end
 
     local function buildTabStrip()
-        -- Shell luar = outline solid (bukan UIStroke) -> garis utuh & rapi
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Size = UDim2.new(1, 0, 0, STRIP_H),
@@ -2478,27 +2492,24 @@ function Library:CreateWindow(cfg)
         })
         Round(tabStrip, STRIP_H / 2)
 
-        -- Inner = fill gelap yang me-clip isi; inset = STRIP_OUT sehingga
-        -- sisa shell terlihat sebagai outline pill yang mulus sekeliling.
         local inner = New("Frame", {
             Name = "Inner",
-            Position = UDim2.fromOffset(STRIP_OUT, STRIP_OUT),
-            Size = UDim2.new(1, -STRIP_OUT * 2, 1, -STRIP_OUT * 2),
+            Position = UDim2.fromOffset(STRIP_OUT_X, STRIP_OUT_Y),
+            Size = UDim2.new(1, -STRIP_OUT_X * 2, 1, -STRIP_OUT_Y * 2),
             BackgroundColor3 = Theme.Inset,
             ClipsDescendants = true,
             Parent = tabStrip,
         })
-        Round(inner, STRIP_H / 2 - STRIP_OUT)
+        Round(inner, STRIP_H / 2 - STRIP_OUT_Y)
 
         tabScroll = New("ScrollingFrame", {
             Name = "TabScroll",
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 1, -4),
+            Position = UDim2.fromOffset(2, 0),
+            Size = UDim2.new(1, -4, 1, 0),
             BackgroundTransparency = 1,
             ScrollingDirection = Enum.ScrollingDirection.X,
             ElasticBehavior = Enum.ElasticBehavior.Never,
-            ScrollBarThickness = 2,
-            ScrollBarImageColor3 = accents.top,
+            ScrollBarThickness = 0,          -- scrollbar native dimatikan
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.X,
             Parent = inner,
@@ -2510,26 +2521,6 @@ function Library:CreateWindow(cfg)
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             Parent = tabScroll,
-        })
-
-        -- Thumb pill gradasi BERSIH (tanpa UIStroke biru)
-        tabThumb = New("Frame", {
-            Name = "Thumb",
-            Position = UDim2.fromOffset(TRACK_PAD, 0),
-            Size = UDim2.new(0, TAB_W, 1, 0),
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            Visible = false,
-            ZIndex = 1,
-            Parent = tabTrack,
-        })
-        Round(tabThumb, (STRIP_H - STRIP_OUT * 2 - 4) / 2)
-        New("UIGradient", {
-            Color = ColorSequence.new(
-                accents.mid:Lerp(accents.top, 0.25),
-                accents.bottom:Lerp(accents.mid, 0.4)
-            ),
-            Rotation = 0,
-            Parent = tabThumb,
         })
 
         btnRow = New("Frame", {
@@ -2552,10 +2543,39 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
+        tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            updateUnderline(false)
+        end)
+
+        -- Scrollbar pill kecil di BAWAH strip (gradasi biru tegas)
+        underClip = New("Frame", {
+            Name = "UnderlineClip",
+            Position = UDim2.fromOffset(0, UNDER_Y),
+            Size = UDim2.new(1, 0, 0, UNDER_H),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            LayoutOrder = 2,
+            Parent = content,
+        })
+        tabUnderline = New("Frame", {
+            Name = "Underline",
+            Position = UDim2.fromOffset(TRACK_PAD + UNDER_INSET, 0),
+            Size = UDim2.new(0, TAB_W - UNDER_INSET * 2, 1, 0),
+            BackgroundColor3 = accents.top,
+            Visible = false,
+            Parent = underClip,
+        })
+        Round(tabUnderline, UNDER_H)         -- pill
+        New("UIGradient", {
+            Color = ColorSequence.new(accents.top, accents.mid),
+            Rotation = 0,
+            Parent = tabUnderline,
+        })
+
         pagesHolder = New("Frame", {
             Name = "Pages",
-            Position = UDim2.fromOffset(0, STRIP_H + 8),
-            Size = UDim2.new(1, 0, 1, -(STRIP_H + 8)),
+            Position = UDim2.fromOffset(0, UNDER_Y + UNDER_H + 5),
+            Size = UDim2.new(1, 0, 1, -(UNDER_Y + UNDER_H + 5)),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             Parent = content,
@@ -2644,7 +2664,7 @@ function Library:CreateWindow(cfg)
         if #tabs == 1 or default then
             selectTab(tab, false)
         else
-            layoutThumb(false)
+            updateUnderline(false)
         end
 
         return BuildItems(page, accents, { root = root })
