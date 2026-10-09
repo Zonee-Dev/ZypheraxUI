@@ -2423,16 +2423,14 @@ function Library:CreateWindow(cfg)
     local selectedTab
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
 
-    local STRIP_H = 34           -- strip sedikit lebih tinggi
-    local STRIP_OUT = 2          -- outline kiri/kanan
-    local STRIP_OUT_V = 4        -- outline atas/bawah LEBIH TEBAL (abu2)
+    local STRIP_H = 30
+    local STRIP_OUT = 2          -- outline uniform (tidak ada band tebal bawah)
     local SCROLL_INSET = 2
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local IND_W = 48             -- scrollbar pill kecil
-    local IND_H = 2
-    local IND_Y = STRIP_H + 4    -- di bawah strip
+    local IND_H = 3
+    local IND_Y = STRIP_H + 3
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
@@ -2444,13 +2442,13 @@ function Library:CreateWindow(cfg)
         end
         local idx = (selectedTab.Order or 1) - 1
         local trackX = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        local center = trackX + TAB_W / 2 - tabScroll.CanvasPosition.X
+        local canvasX = tabScroll.CanvasPosition.X
         local viewportW = tabScroll.AbsoluteSize.X
-        local x = center - IND_W / 2
-        local visible = (center > 0) and (center < viewportW)
-        x = math.clamp(x, 0, math.max(viewportW - IND_W, 0))
+        local viewX = trackX - canvasX
+        local visible = (viewX + TAB_W > 0) and (viewX < viewportW)
+        viewX = math.clamp(viewX, 0, math.max(viewportW - TAB_W, 0))
         tabIndicator.Visible = visible
-        local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + x, IND_Y)
+        local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + viewX, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
@@ -2497,7 +2495,7 @@ function Library:CreateWindow(cfg)
     end
 
     local function buildTabStrip()
-        -- Shell outline abu2 (Border, bukan BorderStrong agar tidak terbaca putih)
+        -- Shell outline gelap (Border) uniform 2px -> tidak ada garis terang
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Size = UDim2.new(1, 0, 0, STRIP_H),
@@ -2509,13 +2507,13 @@ function Library:CreateWindow(cfg)
 
         local inner = New("Frame", {
             Name = "Inner",
-            Position = UDim2.fromOffset(STRIP_OUT, STRIP_OUT_V),
-            Size = UDim2.new(1, -STRIP_OUT * 2, 1, -STRIP_OUT_V * 2),
+            Position = UDim2.fromOffset(STRIP_OUT, STRIP_OUT),
+            Size = UDim2.new(1, -STRIP_OUT * 2, 1, -STRIP_OUT * 2),
             BackgroundColor3 = Theme.Inset,
             ClipsDescendants = true,
             Parent = tabStrip,
         })
-        Round(inner, STRIP_H / 2 - STRIP_OUT_V)
+        Round(inner, STRIP_H / 2 - STRIP_OUT)
 
         tabScroll = New("ScrollingFrame", {
             Name = "TabScroll",
@@ -2538,17 +2536,16 @@ function Library:CreateWindow(cfg)
             Parent = tabScroll,
         })
 
-        -- Thumb pill gradasi; base color BIRU (bukan putih) -> tiada garis putih
         tabThumb = New("Frame", {
             Name = "Thumb",
             Position = UDim2.fromOffset(TRACK_PAD, 0),
             Size = UDim2.new(0, TAB_W, 1, 0),
-            BackgroundColor3 = accents.mid,
+            BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             ZIndex = 1,
             Parent = tabTrack,
         })
-        Round(tabThumb, (STRIP_H - STRIP_OUT_V * 2 - SCROLL_INSET * 2) / 2)
+        Round(tabThumb, (STRIP_H - STRIP_OUT * 2 - SCROLL_INSET * 2) / 2)
         New("UIGradient", {
             Color = ColorSequence.new(
                 accents.mid:Lerp(accents.top, 0.25),
@@ -2578,12 +2575,11 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        -- Scrollbar pill KECIL di bawah strip, center di tab terpilih
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET, IND_Y),
-            Size = UDim2.fromOffset(IND_W, IND_H),
-            BackgroundColor3 = accents.top,
+            Size = UDim2.fromOffset(TAB_W, IND_H),
+            BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             Parent = content,
         })
@@ -2600,8 +2596,8 @@ function Library:CreateWindow(cfg)
 
         pagesHolder = New("Frame", {
             Name = "Pages",
-            Position = UDim2.fromOffset(0, STRIP_H + 12),
-            Size = UDim2.new(1, 0, 1, -(STRIP_H + 12)),
+            Position = UDim2.fromOffset(0, STRIP_H + 10),
+            Size = UDim2.new(1, 0, 1, -(STRIP_H + 10)),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             Parent = content,
