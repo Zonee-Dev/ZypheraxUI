@@ -2417,17 +2417,17 @@ function Library:CreateWindow(cfg)
         end
     end))
 
-    -- Tabs: strip pill, thumb pill, max 4 tab terlihat, lebih = scroll ---
+    -- Tabs: strip pill bersih (shell+inner), thumb pill tanpa stroke ----
 
     local tabs = {}
     local selectedTab
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder
 
     local STRIP_H = 30
-    local STRIP_PAD = 3
+    local STRIP_OUT = 2        -- ketebalan outline pill luar
     local STRIP_GAP = 3
     local TRACK_PAD = 2
-    local TAB_W = 92          -- 4 tab pas memenuhi viewport; tab ke-5+ = scroll
+    local TAB_W = 92
     local TAB_VISIBLE = 4
 
     local function layoutThumb(animate)
@@ -2468,27 +2468,32 @@ function Library:CreateWindow(cfg)
     end
 
     local function buildTabStrip()
+        -- Shell luar = outline solid (bukan UIStroke) -> garis utuh & rapi
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Size = UDim2.new(1, 0, 0, STRIP_H),
-            BackgroundColor3 = Theme.Inset,
-            ClipsDescendants = true,
+            BackgroundColor3 = Theme.BorderStrong,
             LayoutOrder = 0,
             Parent = content,
         })
-        Round(tabStrip, STRIP_H / 2)   -- pill penuh
-        New("UIStroke", {
-            Color = Theme.Border,
-            Thickness = 1,
-            Transparency = 0.2,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Round(tabStrip, STRIP_H / 2)
+
+        -- Inner = fill gelap yang me-clip isi; inset = STRIP_OUT sehingga
+        -- sisa shell terlihat sebagai outline pill yang mulus sekeliling.
+        local inner = New("Frame", {
+            Name = "Inner",
+            Position = UDim2.fromOffset(STRIP_OUT, STRIP_OUT),
+            Size = UDim2.new(1, -STRIP_OUT * 2, 1, -STRIP_OUT * 2),
+            BackgroundColor3 = Theme.Inset,
+            ClipsDescendants = true,
             Parent = tabStrip,
         })
+        Round(inner, STRIP_H / 2 - STRIP_OUT)
 
         tabScroll = New("ScrollingFrame", {
             Name = "TabScroll",
-            Position = UDim2.fromOffset(STRIP_PAD, STRIP_PAD),
-            Size = UDim2.new(1, -STRIP_PAD * 2, 1, -STRIP_PAD * 2),
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 1, -4),
             BackgroundTransparency = 1,
             ScrollingDirection = Enum.ScrollingDirection.X,
             ElasticBehavior = Enum.ElasticBehavior.Never,
@@ -2496,7 +2501,7 @@ function Library:CreateWindow(cfg)
             ScrollBarImageColor3 = accents.top,
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.X,
-            Parent = tabStrip,
+            Parent = inner,
         })
 
         tabTrack = New("Frame", {
@@ -2507,6 +2512,7 @@ function Library:CreateWindow(cfg)
             Parent = tabScroll,
         })
 
+        -- Thumb pill gradasi BERSIH (tanpa UIStroke biru)
         tabThumb = New("Frame", {
             Name = "Thumb",
             Position = UDim2.fromOffset(TRACK_PAD, 0),
@@ -2516,20 +2522,13 @@ function Library:CreateWindow(cfg)
             ZIndex = 1,
             Parent = tabTrack,
         })
-        Round(tabThumb, (STRIP_H - STRIP_PAD * 2) / 2)   -- pill thumb
+        Round(tabThumb, (STRIP_H - STRIP_OUT * 2 - 4) / 2)
         New("UIGradient", {
             Color = ColorSequence.new(
                 accents.mid:Lerp(accents.top, 0.25),
                 accents.bottom:Lerp(accents.mid, 0.4)
             ),
             Rotation = 0,
-            Parent = tabThumb,
-        })
-        New("UIStroke", {
-            Color = accents.top,
-            Thickness = 1,
-            Transparency = 0.5,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = tabThumb,
         })
 
