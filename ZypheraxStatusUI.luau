@@ -55,7 +55,7 @@ local BAR_H = 78
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
-local STROKE = 2          -- ketebalan outline (2px)
+local STROKE = 2
 
 local BADGE_D = 110
 local NOTCH_R = 64
@@ -87,7 +87,6 @@ local HEADER_MARGIN = 14
 local HEADER_GAP = 6
 local SEARCH_W = 128
 
--- Traffic-light flat colors (tanpa gloss/glow)
 local MIN_BASE = Theme.Warning
 local MIN_RIM = Theme.Warning:Lerp(Color3.new(0, 0, 0), 0.28)
 local MIN_ICON = Color3.fromRGB(48, 36, 6)
@@ -180,7 +179,6 @@ local function sampleGradient(colorAt, y0, y1, steps)
     return ColorSequence.new(keys)
 end
 
--- Outline shell: rim gradasi biru 2px (STROKE) di sekeliling bentuk
 local function GradientShell(parent, name, position, size, radius, colors, zIndex)
     colors = colors or Theme
     local top = colors.top or Theme.StrokeTop
@@ -1711,7 +1709,7 @@ function Library:CreateWindow(cfg)
     })
     local uiScale = New("UIScale", { Parent = root })
 
-    -- Panel: outline gradasi 2px + fill gradasi hitam -------------------
+    -- Panel -------------------------------------------------------------
 
     local function gradAt(t)
         t = math.clamp(t, 0, 1)
@@ -1782,7 +1780,6 @@ function Library:CreateWindow(cfg)
         })
     end
 
-    -- OUTLINE (rim gradasi biru, tebal = STROKE = 2px)
     block("OutLeftRound", -STROKE, -STROKE, oR * 2, outerH, 1, outlineAt, oR)
     block("OutRightRound", WIDTH + STROKE - oR * 2, -STROKE, oR * 2, outerH, 1, outlineAt, oR)
     block("OutLeft", R_CARD, -STROKE, cx - R - R_CARD, outerH, 1, outlineAt)
@@ -1794,7 +1791,6 @@ function Library:CreateWindow(cfg)
     notchBand("NotchOutB", 22, 48, holeR, 80, outlineAt(35), 1)
     notchBand("NotchOutC", 47, R + 1, holeR, 80, outlineAt(60), 1)
 
-    -- FILL (gradasi hitam), inset 2px dari outline
     block("FillLeftRound", 0, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
     block("FillRightRound", WIDTH - R_CARD * 2, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
     block("FillLeft", R_CARD, 0, cx - R - R_CARD, CARD_H, 2, fillAt)
@@ -1873,7 +1869,6 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    -- Tombol traffic-light FLAT (tanpa gloss/glow)
     local function makeTraffic(name, slot, base, rim)
         local btn = New("TextButton", {
             Name = name,
@@ -1897,7 +1892,6 @@ function Library:CreateWindow(cfg)
         return btn, stroke, scale
     end
 
-    -- Hover FLAT: hanya pop-scale + animasi glyph, warna latar tetap solid
     local function wireTraffic(btn, scale, opts)
         opts = opts or {}
         local gh = opts.holder
@@ -2039,7 +2033,7 @@ function Library:CreateWindow(cfg)
     )
     haloTween:Play()
 
-    -- Status bar: outline gradasi 2px + fill gradasi hitam --------------
+    -- Status bar --------------------------------------------------------
 
     local barY = OVERHANG + CARD_H + GAP
     GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
@@ -2165,7 +2159,7 @@ function Library:CreateWindow(cfg)
     local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
     local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
 
-    -- Discord pill (flat, tanpa gloss) ----------------------------------
+    -- Discord pill ------------------------------------------------------
 
     if discord then
         local button = New("TextButton", {
@@ -2423,35 +2417,27 @@ function Library:CreateWindow(cfg)
         end
     end))
 
-    -- Tabs --------------------------------------------------------------
+    -- Tabs: strip pill, thumb pill, max 4 tab terlihat, lebih = scroll ---
 
     local tabs = {}
     local selectedTab
-    local tabStrip, tabThumb, tabButtons, pagesHolder
+    local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder
 
-    local STRIP_W = WIDTH - CONTENT_X * 2
-    local STRIP_PAD, STRIP_GAP = 3, 3
+    local STRIP_H = 30
+    local STRIP_PAD = 3
+    local STRIP_GAP = 3
+    local TRACK_PAD = 2
+    local TAB_W = 92          -- 4 tab pas memenuhi viewport; tab ke-5+ = scroll
+    local TAB_VISIBLE = 4
 
     local function layoutThumb(animate)
-        if not (tabThumb and selectedTab and selectedTab.Width) then
+        if not (tabThumb and selectedTab) then
             return
         end
-        local total, offset = 0, nil
-        for _, tab in ipairs(tabs) do
-            if tab.Width then
-                if tab == selectedTab then
-                    offset = total
-                end
-                total += tab.Width + STRIP_GAP
-            end
-        end
-        total -= STRIP_GAP
-        if not offset then
-            return
-        end
-        local x = STRIP_PAD + ((STRIP_W - STRIP_PAD * 2) - total) / 2 + offset
-        local goalPosition = UDim2.fromOffset(x, 3)
-        local goalSize = UDim2.new(0, selectedTab.Width, 1, -6)
+        local idx = (selectedTab.Order or 1) - 1
+        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        local goalPosition = UDim2.fromOffset(x, 0)
+        local goalSize = UDim2.new(0, TAB_W, 1, 0)
         tabThumb.Visible = true
         if animate then
             Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
@@ -2484,12 +2470,13 @@ function Library:CreateWindow(cfg)
     local function buildTabStrip()
         tabStrip = New("Frame", {
             Name = "TabStrip",
-            Size = UDim2.new(1, 0, 0, 30),
+            Size = UDim2.new(1, 0, 0, STRIP_H),
             BackgroundColor3 = Theme.Inset,
+            ClipsDescendants = true,
             LayoutOrder = 0,
             Parent = content,
         })
-        Round(tabStrip, 8)
+        Round(tabStrip, STRIP_H / 2)   -- pill penuh
         New("UIStroke", {
             Color = Theme.Border,
             Thickness = 1,
@@ -2497,16 +2484,39 @@ function Library:CreateWindow(cfg)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = tabStrip,
         })
-        tabThumb = New("Frame", {
-            Name = "Thumb",
-            Position = UDim2.fromOffset(STRIP_PAD, 3),
-            Size = UDim2.new(0, 0, 1, -6),
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            Visible = false,
-            ZIndex = 2,
+
+        tabScroll = New("ScrollingFrame", {
+            Name = "TabScroll",
+            Position = UDim2.fromOffset(STRIP_PAD, STRIP_PAD),
+            Size = UDim2.new(1, -STRIP_PAD * 2, 1, -STRIP_PAD * 2),
+            BackgroundTransparency = 1,
+            ScrollingDirection = Enum.ScrollingDirection.X,
+            ElasticBehavior = Enum.ElasticBehavior.Never,
+            ScrollBarThickness = 2,
+            ScrollBarImageColor3 = accents.top,
+            CanvasSize = UDim2.new(),
+            AutomaticCanvasSize = Enum.AutomaticSize.X,
             Parent = tabStrip,
         })
-        Round(tabThumb, 6)
+
+        tabTrack = New("Frame", {
+            Name = "Track",
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            Parent = tabScroll,
+        })
+
+        tabThumb = New("Frame", {
+            Name = "Thumb",
+            Position = UDim2.fromOffset(TRACK_PAD, 0),
+            Size = UDim2.new(0, TAB_W, 1, 0),
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            Visible = false,
+            ZIndex = 1,
+            Parent = tabTrack,
+        })
+        Round(tabThumb, (STRIP_H - STRIP_PAD * 2) / 2)   -- pill thumb
         New("UIGradient", {
             Color = ColorSequence.new(
                 accents.mid:Lerp(accents.top, 0.25),
@@ -2522,30 +2532,31 @@ function Library:CreateWindow(cfg)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = tabThumb,
         })
-        tabButtons = New("Frame", {
+
+        btnRow = New("Frame", {
             Name = "Buttons",
-            Size = UDim2.fromScale(1, 1),
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
-            ZIndex = 3,
-            Parent = tabStrip,
+            ZIndex = 2,
+            Parent = tabTrack,
         })
         New("UIListLayout", {
             Padding = UDim.new(0, STRIP_GAP),
             FillDirection = Enum.FillDirection.Horizontal,
-            HorizontalAlignment = Enum.HorizontalAlignment.Center,
             VerticalAlignment = Enum.VerticalAlignment.Center,
             SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = tabButtons,
+            Parent = btnRow,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, STRIP_PAD), PaddingRight = UDim.new(0, STRIP_PAD),
-            Parent = tabButtons,
+            PaddingLeft = UDim.new(0, TRACK_PAD), PaddingRight = UDim.new(0, TRACK_PAD),
+            Parent = btnRow,
         })
 
         pagesHolder = New("Frame", {
             Name = "Pages",
-            Position = UDim2.fromOffset(0, 38),
-            Size = UDim2.new(1, 0, 1, -38),
+            Position = UDim2.fromOffset(0, STRIP_H + 8),
+            Size = UDim2.new(1, 0, 1, -(STRIP_H + 8)),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             Parent = content,
@@ -2553,27 +2564,24 @@ function Library:CreateWindow(cfg)
     end
 
     local function makeTabButton(tab)
-        local measured = TextService:GetTextSize(
-            tab.Name, 12, Enum.Font.GothamSemibold, Vector2.new(math.huge, math.huge)
-        )
-        tab.Width = math.max(72, math.ceil(measured.X) + 34)
-
         local button = New("TextButton", {
-            Size = UDim2.new(0, tab.Width, 1, -6),
+            Size = UDim2.new(0, TAB_W, 1, 0),
             LayoutOrder = tab.Order,
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false,
-            ZIndex = 3,
-            Parent = tabButtons,
+            ZIndex = 2,
+            Parent = btnRow,
         })
         local buttonLabel = Label({
-            Size = UDim2.fromScale(1, 1),
+            Position = UDim2.fromOffset(4, 0),
+            Size = UDim2.new(1, -8, 1, 0),
             Weight = "SemiBold",
             Text = tab.Name,
             TextSize = 12,
             TextColor3 = tab.Active and Color3.new(1, 1, 1) or Theme.TextTertiary,
             TextXAlignment = Enum.TextXAlignment.Center,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = button,
         })
         tab.Button = button
