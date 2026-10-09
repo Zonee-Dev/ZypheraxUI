@@ -16,9 +16,8 @@ local Theme = {
     StrokeMid = Color3.fromRGB(28, 100, 232),
     StrokeBottom = Color3.fromRGB(10, 46, 138),
 
-    -- Surface family: netral hitam/abu (kohesif dengan gradasi background)
-    Surface = Color3.fromRGB(26, 26, 26),      -- #1A1A1A
-    SurfaceDeep = Color3.fromRGB(9, 9, 9),     -- #090909
+    Surface = Color3.fromRGB(26, 26, 26),
+    SurfaceDeep = Color3.fromRGB(9, 9, 9),
     Raised = Color3.fromRGB(38, 38, 38),
     Hover = Color3.fromRGB(48, 48, 48),
     Pressed = Color3.fromRGB(30, 30, 30),
@@ -82,14 +81,12 @@ local CONTENT_X = 16
 local CONTENT_TOP = NOTCH_R + 12
 local CONTENT_BOTTOM = 16
 
--- Header row
 local HEADER_Y = 18
-local HEADER_H = 30
+local HEADER_H = 26
 local HEADER_MARGIN = 14
-local HEADER_GAP = 8
+local HEADER_GAP = 6
 local SEARCH_W = 128
 
--- Traffic-light defaults
 local MIN_BASE = Theme.Warning
 local MIN_HOVER = Theme.Warning:Lerp(Color3.new(1, 1, 1), 0.14)
 local MIN_RIM = Theme.Warning:Lerp(Color3.new(0, 0, 0), 0.28)
@@ -105,31 +102,18 @@ local CLOSE_HOVER = Theme.Danger:Lerp(Color3.new(1, 1, 1), 0.14)
 local CLOSE_RIM = Theme.Danger:Lerp(Color3.new(0, 0, 0), 0.28)
 local CLOSE_ICON = Color3.fromRGB(255, 255, 255)
 
-local REFRESH_BASE = Color3.fromRGB(82, 88, 104)
-local REFRESH_HOVER = REFRESH_BASE:Lerp(Color3.new(1, 1, 1), 0.14)
+local REFRESH_BASE = Color3.fromRGB(96, 102, 120)
+local REFRESH_HOVER = REFRESH_BASE:Lerp(Color3.new(1, 1, 1), 0.16)
 local REFRESH_RIM = REFRESH_BASE:Lerp(Color3.new(0, 0, 0), 0.28)
-local REFRESH_ICON = Color3.fromRGB(230, 234, 242)
+local REFRESH_ICON = Color3.fromRGB(240, 244, 250)
 
--- Layered black palette (light -> dark) untuk background ber-gradasi ----
 local BLACKS = {
-    Color3.fromRGB(32, 32, 32),   -- #202020
-    Color3.fromRGB(26, 26, 26),   -- #1A1A1A
-    Color3.fromRGB(19, 19, 19),   -- #131313
-    Color3.fromRGB(9, 9, 9),      -- #090909
-    Color3.fromRGB(0, 0, 0),      -- #000000
+    Color3.fromRGB(32, 32, 32),
+    Color3.fromRGB(26, 26, 26),
+    Color3.fromRGB(19, 19, 19),
+    Color3.fromRGB(9, 9, 9),
+    Color3.fromRGB(0, 0, 0),
 }
-
--- Brushed-grain: micro-band diagonal halus (transparency bergerigi lembut)
-local GRAIN_SEQ = (function()
-    local keys = {}
-    local n = 16
-    for i = 0, n do
-        local t = i / n
-        local v = (i % 2 == 0) and 0.955 or 0.915
-        table.insert(keys, NumberSequenceKeypoint.new(t, v))
-    end
-    return NumberSequence.new(keys)
-end)()
 
 local Library = {
     Unloaded = false,
@@ -171,7 +155,6 @@ local function Tween(obj, duration, props, style, direction)
     return tween
 end
 
--- Sample palette hitam pada t [0,1] (light->dark) dengan interpolasi mulus
 local function paletteAt(t)
     t = math.clamp(t, 0, 1)
     local f = t * (#BLACKS - 1)
@@ -182,15 +165,13 @@ local function paletteAt(t)
     return a:Lerp(b, frac)
 end
 
-local function fillAt(y)      -- panel: 0..CARD_H
+local function fillAt(y)
     return paletteAt(y / CARD_H)
 end
-local function barFillAt(y)   -- bar: 0..BAR_H
+local function barFillAt(y)
     return paletteAt(y / BAR_H)
 end
 
--- Bangun ColorSequence multi-stop dari fungsi warna, agar gradasi global
--- tetap mulus di dalam tiap blok tinggi (tidak patah 2-stop).
 local function sampleGradient(colorAt, y0, y1, steps)
     steps = steps or 6
     local keys = {}
@@ -200,50 +181,6 @@ local function sampleGradient(colorAt, y0, y1, steps)
         table.insert(keys, ColorSequenceKeypoint.new(t, colorAt(y)))
     end
     return ColorSequence.new(keys)
-end
-
--- Overlay texture grain diagonal pada sebuah blok fill (di-clip bentuk blok)
-local function addTexture(frame, rotation)
-    frame.ClipsDescendants = true
-    local tex = New("Frame", {
-        Name = "Grain",
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        Parent = frame,
-    })
-    New("UIGradient", {
-        Transparency = GRAIN_SEQ,
-        Rotation = rotation or 45,
-        Parent = tex,
-    })
-    return tex
-end
-
-local function GradientShell(parent, name, position, size, radius, colors, zIndex)
-    colors = colors or Theme
-    local top = colors.top or Theme.StrokeTop
-    local mid = colors.mid or Theme.StrokeMid
-    local bottom = colors.bottom or Theme.StrokeBottom
-
-    local shell = New("Frame", {
-        Name = name .. "Shell",
-        Position = UDim2.new(position.X.Scale, position.X.Offset - STROKE, position.Y.Scale, position.Y.Offset - STROKE),
-        Size = UDim2.new(size.X.Scale, size.X.Offset + STROKE * 2, size.Y.Scale, size.Y.Offset + STROKE * 2),
-        BackgroundColor3 = top,
-        ZIndex = zIndex or 1,
-        Parent = parent,
-    })
-    Round(shell, radius + STROKE)
-    New("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, top),
-            ColorSequenceKeypoint.new(0.5, mid),
-            ColorSequenceKeypoint.new(1, bottom),
-        }),
-        Rotation = 90,
-        Parent = shell,
-    })
-    return shell
 end
 
 local function Fill(parent, name, radius, color, zIndex, inset)
@@ -437,7 +374,7 @@ local function MaximizeGlyph(parent, color, size)
     local box = New("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size * 0.58, size * 0.58),
+        Size = UDim2.fromOffset(size * 0.6, size * 0.6),
         BackgroundTransparency = 1,
         Parent = holder,
     })
@@ -457,43 +394,27 @@ local function RefreshGlyph(parent, color, size)
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(size, size),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
         Parent = parent,
     })
     local ring = New("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size * 0.78, size * 0.78),
+        Size = UDim2.fromOffset(size * 0.74, size * 0.74),
         BackgroundTransparency = 1,
         Parent = holder,
     })
-    Round(ring, size * 0.39)
-    local ringStroke = New("UIStroke", {
+    Round(ring, size * 0.37)
+    New("UIStroke", {
         Color = color,
         Thickness = 1.7,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = ring,
     })
-    local clip = New("Frame", {
-        Position = UDim2.fromScale(0.52, 0),
-        Size = UDim2.fromScale(0.48, 0.48),
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        ZIndex = 2,
-        Parent = holder,
-    })
-    New("Frame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = 1,
-        Parent = clip,
-    })
     local arrow = New("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.82, 0.22),
-        Size = UDim2.fromOffset(size * 0.28, size * 0.28),
+        Position = UDim2.fromScale(0.8, 0.2),
+        Size = UDim2.fromOffset(size * 0.3, size * 0.3),
         BackgroundTransparency = 1,
-        ZIndex = 3,
         Parent = holder,
     })
     local function arrowBar(length, thickness, rotation, dx, dy)
@@ -507,9 +428,9 @@ local function RefreshGlyph(parent, color, size)
         })
         Round(part, thickness / 2)
     end
-    arrowBar(size * 0.22, 1.7, -45, 0, -size * 0.06)
-    arrowBar(size * 0.22, 1.7, 45, 0, size * 0.06)
-    return holder, ringStroke
+    arrowBar(size * 0.24, 1.7, -45, 0, -size * 0.07)
+    arrowBar(size * 0.24, 1.7, 45, 0, size * 0.07)
+    return holder
 end
 
 local function SearchIcon(parent, color, size)
@@ -675,7 +596,6 @@ function Library:Notify(cfg)
         Parent = shell,
     })
     Round(toast, 8)
-    addTexture(toast, 45)
 
     New("Frame", {
         Name = "Stripe",
@@ -1680,7 +1600,6 @@ local function BuildItems(page, accents, ctx)
             Parent = page,
         })
         Round(wrap, 8)
-        addTexture(wrap, 45)
         New("UIPadding", {
             PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10),
             PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12),
@@ -1767,7 +1686,7 @@ function Library:CreateWindow(cfg)
     })
     local uiScale = New("UIScale", { Parent = root })
 
-    -- Panel geometry ----------------------------------------------------
+    -- Panel: HANYA fill gradasi hitam (tanpa rim persegi) -> floating ----
 
     local function gradAt(t)
         t = math.clamp(t, 0, 1)
@@ -1786,15 +1705,10 @@ function Library:CreateWindow(cfg)
     })
 
     local cx = WIDTH / 2
-    local outerH = CARD_H + STROKE * 2
     local R = NOTCH_R
     local EXT = 2
 
-    local function outlineAt(y)
-        return gradAt((y + STROKE) / outerH)
-    end
-
-    local function block(name, x, y, w, h, z, colorAt, kink, radius)
+    local function block(name, x, y, w, h, z, colorAt, radius)
         local piece = New("Frame", {
             Name = name,
             Position = UDim2.fromOffset(x, y),
@@ -1803,7 +1717,6 @@ function Library:CreateWindow(cfg)
             ZIndex = z,
             Parent = panel,
         })
-        -- gradasi multi-stop agar palette hitam mulus sepanjang blok tinggi
         New("UIGradient", { Color = sampleGradient(colorAt, y, y + h), Rotation = 90, Parent = piece })
         if radius then
             Round(piece, radius)
@@ -1838,32 +1751,18 @@ function Library:CreateWindow(cfg)
         })
     end
 
-    local kinkY = CARD_H / 2
-    local oR = R_CARD + STROKE
+    -- Fill silhouette (gradasi hitam), tanpa blok outline/rim persegi
+    block("FillLeftRound", 0, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
+    block("FillRightRound", WIDTH - R_CARD * 2, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
+    block("FillLeft", R_CARD, 0, cx - R - R_CARD, CARD_H, 2, fillAt)
+    block("FillRight", cx + R, 0, WIDTH - R_CARD - (cx + R), CARD_H, 2, fillAt)
+    block("FillMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H - R, 2, fillAt)
 
-    block("OutLeftRound", -STROKE, -STROKE, oR * 2, outerH, 1, outlineAt, kinkY, oR)
-    block("OutRightRound", WIDTH + STROKE - oR * 2, -STROKE, oR * 2, outerH, 1, outlineAt, kinkY, oR)
-    block("OutLeft", R_CARD, -STROKE, cx - R - R_CARD, outerH, 1, outlineAt, kinkY)
-    block("OutRight", cx + R, -STROKE, WIDTH - R_CARD - (cx + R), outerH, 1, outlineAt, kinkY)
-    block("OutMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H + STROKE - R, 1, outlineAt, kinkY)
-
+    -- Notch: rim dalam diberi warna gelap (menyatu), bukan biru
     local holeR = R - STROKE
-    notchBand("NotchOutA", -STROKE, 23, holeR, 80, outlineAt(10), 1)
-    notchBand("NotchOutB", 22, 48, holeR, 80, outlineAt(35), 1)
-    notchBand("NotchOutC", 47, R + 1, holeR, 80, outlineAt(60), 1)
-
-    -- Fill blocks: gradasi hitam 5-stop + texture grain diagonal
-    local fillLR = block("FillLeftRound", 0, 0, R_CARD * 2, CARD_H, 2, fillAt, nil, R_CARD)
-    addTexture(fillLR, 45)
-    local fillRR = block("FillRightRound", WIDTH - R_CARD * 2, 0, R_CARD * 2, CARD_H, 2, fillAt, nil, R_CARD)
-    addTexture(fillRR, 45)
-    local fillL = block("FillLeft", R_CARD, 0, cx - R - R_CARD, CARD_H, 2, fillAt)
-    addTexture(fillL, 45)
-    local fillR = block("FillRight", cx + R, 0, WIDTH - R_CARD - (cx + R), CARD_H, 2, fillAt)
-    addTexture(fillR, 45)
-    local fillM = block("FillMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H - R, 2, fillAt)
-    addTexture(fillM, 45)
-
+    notchBand("NotchOutA", -STROKE, 23, holeR, 80, fillAt(10), 1)
+    notchBand("NotchOutB", 22, 48, holeR, 80, fillAt(35), 1)
+    notchBand("NotchOutC", 47, R + 1, holeR, 80, fillAt(60), 1)
     notchBand("NotchFill", 0, R + 1, R, 80, fillAt(R / 3), 2)
 
     local dragFrame = New("Frame", {
@@ -1875,6 +1774,10 @@ function Library:CreateWindow(cfg)
     })
 
     -- Header ------------------------------------------------------------
+
+    local function btnX(slot)
+        return -(HEADER_MARGIN + (HEADER_H + HEADER_GAP) * (slot - 1))
+    end
 
     local searchFocused = false
 
@@ -1893,12 +1796,12 @@ function Library:CreateWindow(cfg)
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = searchFrame,
     })
-    SearchIcon(searchFrame, Theme.TextTertiary, 12).Position = UDim2.new(0, 11, 0.5, 0)
+    SearchIcon(searchFrame, Theme.TextTertiary, 11).Position = UDim2.new(0, 10, 0.5, 0)
 
     local searchBox = New("TextBox", {
         Name = "Input",
-        Position = UDim2.fromOffset(30, 0),
-        Size = UDim2.new(1, -40, 1, 0),
+        Position = UDim2.fromOffset(28, 0),
+        Size = UDim2.new(1, -36, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "Search...",
@@ -1932,134 +1835,79 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    local function btnX(slotFromRight)
-        return -(HEADER_MARGIN + (HEADER_H + HEADER_GAP) * slotFromRight - HEADER_GAP)
+    local function makeTraffic(name, slot, base, rim)
+        local btn = New("TextButton", {
+            Name = name,
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, btnX(slot), 0, HEADER_Y),
+            Size = UDim2.fromOffset(HEADER_H, HEADER_H),
+            BackgroundColor3 = base,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 5,
+            Parent = panel,
+        })
+        Round(btn, HEADER_H / 2)
+        local stroke = New("UIStroke", {
+            Color = rim,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = btn,
+        })
+        local scale = New("UIScale", { Scale = 1, Parent = btn })
+        local gloss = New("Frame", {
+            Name = "Gloss",
+            AnchorPoint = Vector2.new(0.5, 0),
+            Position = UDim2.new(0.5, 0, 0, 3),
+            Size = UDim2.new(1, -8, 0, HEADER_H * 0.4),
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundTransparency = 0.8,
+            Parent = btn,
+        })
+        Round(gloss, HEADER_H * 0.2)
+        return btn, stroke, scale
     end
 
-    local closeBtn = New("TextButton", {
-        Name = "CloseBtn",
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, btnX(1), 0, HEADER_Y),
-        Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = CLOSE_BASE,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = panel,
-    })
-    Round(closeBtn, HEADER_H / 2)
-    local closeStroke = New("UIStroke", { Color = CLOSE_RIM, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = closeBtn })
-    local closeScale = New("UIScale", { Scale = 1, Parent = closeBtn })
-    local closeHolder, closePaint = Glyph(closeBtn, "close", CLOSE_ICON, 11)
+    local function wireTraffic(btn, stroke, scale, base, hover, rim, opts)
+        opts = opts or {}
+        local gh = opts.holder
+        local gs = opts.glyphScale
+        btn.MouseEnter:Connect(function()
+            Tween(btn, 0.12, { BackgroundColor3 = hover })
+            Tween(stroke, 0.12, { Color = base })
+            Tween(scale, 0.16, { Scale = 1.12 }, Enum.EasingStyle.Quint)
+            if gs then Tween(gs, 0.16, { Scale = 1.18 }, Enum.EasingStyle.Quint) end
+            if opts.spin and gh then Tween(gh, 0.6, { Rotation = gh.Rotation + 360 }, Enum.EasingStyle.Quad) end
+            if opts.rotate and gh then Tween(gh, 0.2, { Rotation = 90 }, Enum.EasingStyle.Quint) end
+        end)
+        btn.MouseLeave:Connect(function()
+            Tween(btn, 0.12, { BackgroundColor3 = base })
+            Tween(stroke, 0.12, { Color = rim })
+            Tween(scale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
+            if gs then Tween(gs, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint) end
+            if opts.rotate and gh then Tween(gh, 0.2, { Rotation = 0 }, Enum.EasingStyle.Quint) end
+        end)
+        btn.MouseButton1Down:Connect(function() Tween(scale, 0.06, { Scale = 0.9 }) end)
+        btn.MouseButton1Up:Connect(function() Tween(scale, 0.12, { Scale = 1.12 }, Enum.EasingStyle.Quint) end)
+    end
 
-    closeBtn.MouseEnter:Connect(function()
-        Tween(closeBtn, 0.12, { BackgroundColor3 = CLOSE_HOVER })
-        Tween(closeStroke, 0.12, { Color = CLOSE_BASE })
-        Tween(closeScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
-        Tween(closeHolder, 0.2, { Rotation = 90 }, Enum.EasingStyle.Quint)
-    end)
-    closeBtn.MouseLeave:Connect(function()
-        Tween(closeBtn, 0.12, { BackgroundColor3 = CLOSE_BASE })
-        Tween(closeStroke, 0.12, { Color = CLOSE_RIM })
-        Tween(closeScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-        Tween(closeHolder, 0.2, { Rotation = 0 }, Enum.EasingStyle.Quint)
-    end)
-    closeBtn.MouseButton1Down:Connect(function() Tween(closeScale, 0.06, { Scale = 0.92 }) end)
-    closeBtn.MouseButton1Up:Connect(function() Tween(closeScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint) end)
+    local closeBtn, closeStroke, closeScale = makeTraffic("CloseBtn", 1, CLOSE_BASE, CLOSE_RIM)
+    local closeHolder, _ = Glyph(closeBtn, "close", CLOSE_ICON, 10)
+    wireTraffic(closeBtn, closeStroke, closeScale, CLOSE_BASE, CLOSE_HOVER, CLOSE_RIM, { holder = closeHolder, rotate = true })
 
-    local focusBtn = New("TextButton", {
-        Name = "FocusBtn",
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, btnX(2), 0, HEADER_Y),
-        Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = FOCUS_BASE,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = panel,
-    })
-    Round(focusBtn, HEADER_H / 2)
-    local focusStroke = New("UIStroke", { Color = FOCUS_RIM, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = focusBtn })
-    local focusScale = New("UIScale", { Scale = 1, Parent = focusBtn })
-    local focusHolder = MaximizeGlyph(focusBtn, FOCUS_ICON, 12)
+    local focusBtn, focusStroke, focusScale = makeTraffic("FocusBtn", 2, FOCUS_BASE, FOCUS_RIM)
+    local focusHolder = MaximizeGlyph(focusBtn, FOCUS_ICON, 11)
     local focusGlyphScale = New("UIScale", { Scale = 1, Parent = focusHolder })
+    wireTraffic(focusBtn, focusStroke, focusScale, FOCUS_BASE, FOCUS_HOVER, FOCUS_RIM, { holder = focusHolder, glyphScale = focusGlyphScale })
 
-    focusBtn.MouseEnter:Connect(function()
-        Tween(focusBtn, 0.12, { BackgroundColor3 = FOCUS_HOVER })
-        Tween(focusStroke, 0.12, { Color = FOCUS_BASE })
-        Tween(focusScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
-        Tween(focusGlyphScale, 0.18, { Scale = 1.15 }, Enum.EasingStyle.Quint)
-    end)
-    focusBtn.MouseLeave:Connect(function()
-        Tween(focusBtn, 0.12, { BackgroundColor3 = FOCUS_BASE })
-        Tween(focusStroke, 0.12, { Color = FOCUS_RIM })
-        Tween(focusScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-        Tween(focusGlyphScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-    end)
-    focusBtn.MouseButton1Down:Connect(function() Tween(focusScale, 0.06, { Scale = 0.92 }) end)
-    focusBtn.MouseButton1Up:Connect(function() Tween(focusScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint) end)
-
-    local minBtn = New("TextButton", {
-        Name = "MinBtn",
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, btnX(3), 0, HEADER_Y),
-        Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = MIN_BASE,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = panel,
-    })
-    Round(minBtn, HEADER_H / 2)
-    local minStroke = New("UIStroke", { Color = MIN_RIM, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = minBtn })
-    local minScale = New("UIScale", { Scale = 1, Parent = minBtn })
-    local minHolder, minPaint = Glyph(minBtn, "minimize", MIN_ICON, 12)
+    local minBtn, minStroke, minScale = makeTraffic("MinBtn", 3, MIN_BASE, MIN_RIM)
+    local minHolder, _ = Glyph(minBtn, "minimize", MIN_ICON, 11)
     local minGlyphScale = New("UIScale", { Scale = 1, Parent = minHolder })
+    wireTraffic(minBtn, minStroke, minScale, MIN_BASE, MIN_HOVER, MIN_RIM, { holder = minHolder, glyphScale = minGlyphScale })
 
-    minBtn.MouseEnter:Connect(function()
-        Tween(minBtn, 0.12, { BackgroundColor3 = MIN_HOVER })
-        Tween(minStroke, 0.12, { Color = MIN_BASE })
-        Tween(minScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
-        Tween(minGlyphScale, 0.16, { Scale = 1.2 }, Enum.EasingStyle.Quint)
-    end)
-    minBtn.MouseLeave:Connect(function()
-        Tween(minBtn, 0.12, { BackgroundColor3 = MIN_BASE })
-        Tween(minStroke, 0.12, { Color = MIN_RIM })
-        Tween(minScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-        Tween(minGlyphScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-    end)
-    minBtn.MouseButton1Down:Connect(function() Tween(minScale, 0.06, { Scale = 0.92 }) end)
-    minBtn.MouseButton1Up:Connect(function() Tween(minScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint) end)
-
-    local refreshBtn = New("TextButton", {
-        Name = "RefreshBtn",
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, btnX(4), 0, HEADER_Y),
-        Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = REFRESH_BASE,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = panel,
-    })
-    Round(refreshBtn, HEADER_H / 2)
-    local refreshStroke = New("UIStroke", { Color = REFRESH_RIM, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = refreshBtn })
-    local refreshScale = New("UIScale", { Scale = 1, Parent = refreshBtn })
-    local refreshHolder, refreshRingStroke = RefreshGlyph(refreshBtn, REFRESH_ICON, 13)
-
-    refreshBtn.MouseEnter:Connect(function()
-        Tween(refreshBtn, 0.12, { BackgroundColor3 = REFRESH_HOVER })
-        Tween(refreshStroke, 0.12, { Color = REFRESH_BASE })
-        Tween(refreshScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
-        Tween(refreshHolder, 0.6, { Rotation = refreshHolder.Rotation + 360 }, Enum.EasingStyle.Quad)
-    end)
-    refreshBtn.MouseLeave:Connect(function()
-        Tween(refreshBtn, 0.12, { BackgroundColor3 = REFRESH_BASE })
-        Tween(refreshStroke, 0.12, { Color = REFRESH_RIM })
-        Tween(refreshScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
-    end)
-    refreshBtn.MouseButton1Down:Connect(function() Tween(refreshScale, 0.06, { Scale = 0.92 }) end)
-    refreshBtn.MouseButton1Up:Connect(function() Tween(refreshScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint) end)
+    local refreshBtn, refreshStroke, refreshScale = makeTraffic("RefreshBtn", 4, REFRESH_BASE, REFRESH_RIM)
+    local refreshHolder = RefreshGlyph(refreshBtn, REFRESH_ICON, 12)
+    wireTraffic(refreshBtn, refreshStroke, refreshScale, REFRESH_BASE, REFRESH_HOVER, REFRESH_RIM, { holder = refreshHolder, spin = true })
 
     -- Search filter ------------------------------------------------------
 
@@ -2125,7 +1973,6 @@ function Library:CreateWindow(cfg)
         Parent = badgeShell,
     })
     Round(badgeCore, BADGE_D / 2 - STROKE)
-    addTexture(badgeCore, 45)
 
     local logoSize = cfg.LogoSize or 0
     local logoImg = New("ImageLabel", {
@@ -2166,13 +2013,18 @@ function Library:CreateWindow(cfg)
     )
     haloTween:Play()
 
-    -- Status bar --------------------------------------------------------
+    -- Status bar: pill gradasi hitam polos (tanpa rim) ------------------
 
     local barY = OVERHANG + CARD_H + GAP
-    GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
-    local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Color3.new(1, 1, 1), 2)
+    local bar = New("Frame", {
+        Name = "Bar",
+        Position = UDim2.fromOffset(0, barY),
+        Size = UDim2.fromOffset(WIDTH, BAR_H),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        Parent = root,
+    })
+    Round(bar, BAR_H / 2)
     New("UIGradient", { Color = sampleGradient(barFillAt, 0, BAR_H), Rotation = 90, Parent = bar })
-    addTexture(bar, 45)
 
     local avatarShell = New("Frame", {
         Name = "Avatar",
