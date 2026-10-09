@@ -57,10 +57,11 @@ local TOTAL_H = CARD_H + GAP + BAR_H
 local R_CARD = 29
 local STROKE = 2
 
-local BADGE_D = 124
-local NOTCH_R = 72
+-- ⬇️ PERUBAHAN: notch & badge lebih kecil, posisi lebih ke atas
+local BADGE_D = 110                 -- was 124
+local NOTCH_R = 64                  -- was 72
 local NOTCH_GAP = NOTCH_R - BADGE_D / 2
-local OVERHANG = BADGE_D / 2
+local OVERHANG = BADGE_D / 2        -- otomatis ikut kecil (55px, was 62px)
 
 local AVATAR = 54
 local AVATAR_IMG = 44
@@ -327,8 +328,6 @@ local function Glyph(parent, name, color, size)
 
     return holder, paint
 end
-
--- Search magnifier icon: hollow lens + short handle --------------------
 
 local function SearchIcon(parent, color, size)
     local holder = New("Frame", {
@@ -1294,7 +1293,6 @@ local function BuildItems(page, accents, ctx)
         Round(swatch, 7)
         New("UIStroke", { Color = Theme.BorderStrong, Thickness = 1, Parent = swatch })
 
-        -- Panel now floats at top-right of the entire UI, not inside the scrolling page.
         local panelOpen = false
         local panel = New("Frame", {
             Name = "ColorPanel",
@@ -1581,14 +1579,7 @@ function Library:CreateWindow(cfg)
     })
     local uiScale = New("UIScale", { Parent = root })
 
-    -- Panel geometry (unchanged) ----------------------------------------
-
-    local function cornerInset(d, r)
-        if d >= r then
-            return 0
-        end
-        return r - math.sqrt(r * r - (r - d) * (r - d))
-    end
+    -- Panel geometry ----------------------------------------------------
 
     local function gradAt(t)
         t = math.clamp(t, 0, 1)
@@ -1701,7 +1692,7 @@ function Library:CreateWindow(cfg)
         Parent = panel,
     })
 
-    -- Header controls: search left, minimize / close right --------------
+    -- Header controls ---------------------------------------------------
 
     local HEADER_Y = 24
     local HEADER_H = 28
@@ -1749,7 +1740,6 @@ function Library:CreateWindow(cfg)
         searchStroke.Color = Theme.Border
     end)
 
-    -- Minimize button
     local minBtn = New("TextButton", {
         Name = "MinBtn",
         AnchorPoint = Vector2.new(1, 0),
@@ -1770,7 +1760,6 @@ function Library:CreateWindow(cfg)
     })
     local _, minPaint = Glyph(minBtn, "minimize", Theme.TextSecondary, 12)
 
-    -- Close button
     local closeBtn = New("TextButton", {
         Name = "CloseBtn",
         AnchorPoint = Vector2.new(1, 0),
@@ -1812,7 +1801,6 @@ function Library:CreateWindow(cfg)
         closePaint(Theme.TextSecondary, 0.1)
     end)
 
-    -- Search filter (function applied below once selectedTab exists) --
     local currentSearchPage = nil
 
     local function applySearch()
@@ -1830,8 +1818,6 @@ function Library:CreateWindow(cfg)
     end
 
     searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
-
-    -- Optional thin corner labels (replaces the old steel badge) --------
 
     if cfg.ShowBadges ~= false then
         Label({
@@ -1861,8 +1847,6 @@ function Library:CreateWindow(cfg)
         })
     end
 
-    -- Content area ------------------------------------------------------
-
     local content = New("Frame", {
         Name = "Content",
         Position = UDim2.fromOffset(CONTENT_X, CONTENT_TOP),
@@ -1873,7 +1857,7 @@ function Library:CreateWindow(cfg)
         Parent = panel,
     })
 
-    -- Logo badge (clips its own image so nothing escapes the circle) --
+    -- Logo badge --------------------------------------------------------
 
     local badgeShell = New("Frame", {
         Name = "Badge",
@@ -2434,7 +2418,6 @@ function Library:CreateWindow(cfg)
     end
 
     local function makeTabButton(tab)
-        -- Real text measurement, not the (wrong) "chars * 7.4" estimate.
         local measured = TextService:GetTextSize(
             tab.Name, 12, Enum.Font.GothamSemibold, Vector2.new(math.huge, math.huge)
         )
