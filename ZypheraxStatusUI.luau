@@ -40,10 +40,10 @@ local Theme = {
 	-- Brand + semantics
 	Accent = Color3.fromRGB(64, 134, 214),
 	White = Color3.fromRGB(245, 245, 245),     -- badge ring
-	Discord = Color3.fromRGB(87, 107, 230),
-	DiscordEdge = Color3.fromRGB(80, 98, 209),
-	DiscordOutline = Color3.fromRGB(48, 49, 65),
-	DiscordText = Color3.fromRGB(208, 219, 242),
+	Discord = Color3.fromRGB(64, 128, 245),
+	DiscordEdge = Color3.fromRGB(88, 92, 222),
+	DiscordOutline = Color3.fromRGB(96, 150, 255),
+	DiscordText = Color3.fromRGB(250, 250, 250),
 	Success = Color3.fromRGB(80, 178, 128),
 	Danger = Color3.fromRGB(224, 92, 92),
 }
@@ -73,7 +73,7 @@ local AVATAR_MARGIN = 10
 
 local INFO_X = 80
 local INFO_BOX = 14                 -- line box height of the identity block
-local INFO_GAP = 2                  -- breathing room between the lines
+local INFO_GAP = 3                  -- breathing room between the lines
 local INFO_TITLE = 13
 local INFO_SIZE = 12
 
@@ -204,6 +204,13 @@ local function Label(props)
 		props.TextXAlignment = Enum.TextXAlignment.Left
 	end
 	return New("TextLabel", props)
+end
+
+local function Field(label, value)
+	return string.format(
+		'<font color="#8C8C91">%s</font>  <font color="#FAFAFA">%s</font>',
+		label, tostring(value)
+	)
 end
 
 local function Opt(cfg, index, key, default)
@@ -1784,46 +1791,6 @@ function Library:CreateWindow(cfg)
 		Parent = badgeCore,
 	})
 
-	-- White lens glow in the gap. Built from five stacked pills so the shape
-	-- reads as a soft CURVED glow (ellipse-ish both ways), never as a line:
-	-- widths taper vertically, alpha fades horizontally on every band.
-	local lensBands = {
-		{ w = 196, h = 3, a = 0.22 },
-		{ w = 258, h = 3, a = 0.50 },
-		{ w = 290, h = 4, a = 0.95 },
-		{ w = 258, h = 3, a = 0.50 },
-		{ w = 196, h = 3, a = 0.22 },
-	}
-	local lensY = OVERHANG + CARD_H + GAP / 2
-	local lensTop = lensY - 8
-	for index, band in ipairs(lensBands) do
-		local offset = 0
-		for i = 1, index - 1 do
-			offset += lensBands[i].h
-		end
-		local piece = New("Frame", {
-			Name = "Lens" .. index,
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, lensTop + offset),
-			Size = UDim2.fromOffset(band.w, band.h),
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BackgroundTransparency = 1 - band.a,
-			ZIndex = 0,
-			Parent = root,
-		})
-		Round(piece, band.h / 2)
-		New("UIGradient", {
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 1),
-				NumberSequenceKeypoint.new(0.16, 0.25),
-				NumberSequenceKeypoint.new(0.5, 0),
-				NumberSequenceKeypoint.new(0.84, 0.25),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-			Parent = piece,
-		})
-	end
-
 	-- Status bar -------------------------------------------------------------
 
 	local barY = OVERHANG + CARD_H + GAP
@@ -1914,7 +1881,8 @@ function Library:CreateWindow(cfg)
 	local statusName = Label({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "Username: " .. (cfg.Username or LocalPlayer.Name),
+		Text = Field("Username:", cfg.Username or LocalPlayer.Name),
+		RichText = true,
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1923,7 +1891,8 @@ function Library:CreateWindow(cfg)
 	local statusId = Label({
 		LayoutOrder = 3,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "ID: " .. tostring(cfg.UserId or LocalPlayer.UserId),
+		Text = Field("ID:", cfg.UserId or LocalPlayer.UserId),
+		RichText = true,
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1932,7 +1901,8 @@ function Library:CreateWindow(cfg)
 	local statusLine = Label({
 		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = "Status: " .. (cfg.Status or "No-Key Script"),
+		Text = Field("Status:", cfg.Status or "No-Key Script"),
+		RichText = true,
 		TextSize = INFO_SIZE,
 		TextColor3 = Theme.TextSecondary,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2082,13 +2052,13 @@ function Library:CreateWindow(cfg)
 	function window:SetStatus(statusCfg)
 		statusCfg = statusCfg or {}
 		if statusCfg.Username then
-			statusName.Text = "Username: " .. tostring(statusCfg.Username)
+			statusName.Text = Field("Username:", statusCfg.Username)
 		end
 		if statusCfg.UserId then
-			statusId.Text = "ID: " .. tostring(statusCfg.UserId)
+			statusId.Text = Field("ID:", statusCfg.UserId)
 		end
 		if statusCfg.Status then
-			statusLine.Text = "Status: " .. tostring(statusCfg.Status)
+			statusLine.Text = Field("Status:", statusCfg.Status)
 		end
 		if statusCfg.Title then
 			statusTitle.Text = tostring(statusCfg.Title)
@@ -2222,7 +2192,7 @@ function Library:CreateWindow(cfg)
 			Visible = false,
 			Parent = holder,
 		})
-		New("UIListLayout", { Padding = UDim2.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
+		New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
 		New("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = page })
 
 		local tab = { Page = page, Active = false, Name = name }
