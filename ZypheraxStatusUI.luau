@@ -55,7 +55,7 @@ local BAR_H = 78
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
-local STROKE = 2
+local STROKE = 2          -- ketebalan outline (2px)
 
 local BADGE_D = 110
 local NOTCH_R = 64
@@ -87,23 +87,20 @@ local HEADER_MARGIN = 14
 local HEADER_GAP = 6
 local SEARCH_W = 128
 
+-- Traffic-light flat colors (tanpa gloss/glow)
 local MIN_BASE = Theme.Warning
-local MIN_HOVER = Theme.Warning:Lerp(Color3.new(1, 1, 1), 0.14)
 local MIN_RIM = Theme.Warning:Lerp(Color3.new(0, 0, 0), 0.28)
 local MIN_ICON = Color3.fromRGB(48, 36, 6)
 
 local FOCUS_BASE = Color3.fromRGB(72, 198, 160)
-local FOCUS_HOVER = FOCUS_BASE:Lerp(Color3.new(1, 1, 1), 0.16)
 local FOCUS_RIM = FOCUS_BASE:Lerp(Color3.new(0, 0, 0), 0.28)
 local FOCUS_ICON = Color3.fromRGB(255, 255, 255)
 
 local CLOSE_BASE = Theme.Danger
-local CLOSE_HOVER = Theme.Danger:Lerp(Color3.new(1, 1, 1), 0.14)
 local CLOSE_RIM = Theme.Danger:Lerp(Color3.new(0, 0, 0), 0.28)
 local CLOSE_ICON = Color3.fromRGB(255, 255, 255)
 
 local REFRESH_BASE = Color3.fromRGB(96, 102, 120)
-local REFRESH_HOVER = REFRESH_BASE:Lerp(Color3.new(1, 1, 1), 0.16)
 local REFRESH_RIM = REFRESH_BASE:Lerp(Color3.new(0, 0, 0), 0.28)
 local REFRESH_ICON = Color3.fromRGB(240, 244, 250)
 
@@ -181,6 +178,34 @@ local function sampleGradient(colorAt, y0, y1, steps)
         table.insert(keys, ColorSequenceKeypoint.new(t, colorAt(y)))
     end
     return ColorSequence.new(keys)
+end
+
+-- Outline shell: rim gradasi biru 2px (STROKE) di sekeliling bentuk
+local function GradientShell(parent, name, position, size, radius, colors, zIndex)
+    colors = colors or Theme
+    local top = colors.top or Theme.StrokeTop
+    local mid = colors.mid or Theme.StrokeMid
+    local bottom = colors.bottom or Theme.StrokeBottom
+
+    local shell = New("Frame", {
+        Name = name .. "Shell",
+        Position = UDim2.new(position.X.Scale, position.X.Offset - STROKE, position.Y.Scale, position.Y.Offset - STROKE),
+        Size = UDim2.new(size.X.Scale, size.X.Offset + STROKE * 2, size.Y.Scale, size.Y.Offset + STROKE * 2),
+        BackgroundColor3 = top,
+        ZIndex = zIndex or 1,
+        Parent = parent,
+    })
+    Round(shell, radius + STROKE)
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, top),
+            ColorSequenceKeypoint.new(0.5, mid),
+            ColorSequenceKeypoint.new(1, bottom),
+        }),
+        Rotation = 90,
+        Parent = shell,
+    })
+    return shell
 end
 
 local function Fill(parent, name, radius, color, zIndex, inset)
@@ -1686,7 +1711,7 @@ function Library:CreateWindow(cfg)
     })
     local uiScale = New("UIScale", { Parent = root })
 
-    -- Panel: HANYA fill gradasi hitam (tanpa rim persegi) -> floating ----
+    -- Panel: outline gradasi 2px + fill gradasi hitam -------------------
 
     local function gradAt(t)
         t = math.clamp(t, 0, 1)
@@ -1705,8 +1730,14 @@ function Library:CreateWindow(cfg)
     })
 
     local cx = WIDTH / 2
+    local outerH = CARD_H + STROKE * 2
     local R = NOTCH_R
     local EXT = 2
+    local oR = R_CARD + STROKE
+
+    local function outlineAt(y)
+        return gradAt((y + STROKE) / outerH)
+    end
 
     local function block(name, x, y, w, h, z, colorAt, radius)
         local piece = New("Frame", {
@@ -1751,18 +1782,25 @@ function Library:CreateWindow(cfg)
         })
     end
 
-    -- Fill silhouette (gradasi hitam), tanpa blok outline/rim persegi
+    -- OUTLINE (rim gradasi biru, tebal = STROKE = 2px)
+    block("OutLeftRound", -STROKE, -STROKE, oR * 2, outerH, 1, outlineAt, oR)
+    block("OutRightRound", WIDTH + STROKE - oR * 2, -STROKE, oR * 2, outerH, 1, outlineAt, oR)
+    block("OutLeft", R_CARD, -STROKE, cx - R - R_CARD, outerH, 1, outlineAt)
+    block("OutRight", cx + R, -STROKE, WIDTH - R_CARD - (cx + R), outerH, 1, outlineAt)
+    block("OutMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H + STROKE - R, 1, outlineAt)
+
+    local holeR = R - STROKE
+    notchBand("NotchOutA", -STROKE, 23, holeR, 80, outlineAt(10), 1)
+    notchBand("NotchOutB", 22, 48, holeR, 80, outlineAt(35), 1)
+    notchBand("NotchOutC", 47, R + 1, holeR, 80, outlineAt(60), 1)
+
+    -- FILL (gradasi hitam), inset 2px dari outline
     block("FillLeftRound", 0, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
     block("FillRightRound", WIDTH - R_CARD * 2, 0, R_CARD * 2, CARD_H, 2, fillAt, R_CARD)
     block("FillLeft", R_CARD, 0, cx - R - R_CARD, CARD_H, 2, fillAt)
     block("FillRight", cx + R, 0, WIDTH - R_CARD - (cx + R), CARD_H, 2, fillAt)
     block("FillMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H - R, 2, fillAt)
 
-    -- Notch: rim dalam diberi warna gelap (menyatu), bukan biru
-    local holeR = R - STROKE
-    notchBand("NotchOutA", -STROKE, 23, holeR, 80, fillAt(10), 1)
-    notchBand("NotchOutB", 22, 48, holeR, 80, fillAt(35), 1)
-    notchBand("NotchOutC", 47, R + 1, holeR, 80, fillAt(60), 1)
     notchBand("NotchFill", 0, R + 1, R, 80, fillAt(R / 3), 2)
 
     local dragFrame = New("Frame", {
@@ -1835,6 +1873,7 @@ function Library:CreateWindow(cfg)
         end
     end)
 
+    -- Tombol traffic-light FLAT (tanpa gloss/glow)
     local function makeTraffic(name, slot, base, rim)
         local btn = New("TextButton", {
             Name = name,
@@ -1855,34 +1894,21 @@ function Library:CreateWindow(cfg)
             Parent = btn,
         })
         local scale = New("UIScale", { Scale = 1, Parent = btn })
-        local gloss = New("Frame", {
-            Name = "Gloss",
-            AnchorPoint = Vector2.new(0.5, 0),
-            Position = UDim2.new(0.5, 0, 0, 3),
-            Size = UDim2.new(1, -8, 0, HEADER_H * 0.4),
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BackgroundTransparency = 0.8,
-            Parent = btn,
-        })
-        Round(gloss, HEADER_H * 0.2)
         return btn, stroke, scale
     end
 
-    local function wireTraffic(btn, stroke, scale, base, hover, rim, opts)
+    -- Hover FLAT: hanya pop-scale + animasi glyph, warna latar tetap solid
+    local function wireTraffic(btn, scale, opts)
         opts = opts or {}
         local gh = opts.holder
         local gs = opts.glyphScale
         btn.MouseEnter:Connect(function()
-            Tween(btn, 0.12, { BackgroundColor3 = hover })
-            Tween(stroke, 0.12, { Color = base })
             Tween(scale, 0.16, { Scale = 1.12 }, Enum.EasingStyle.Quint)
             if gs then Tween(gs, 0.16, { Scale = 1.18 }, Enum.EasingStyle.Quint) end
             if opts.spin and gh then Tween(gh, 0.6, { Rotation = gh.Rotation + 360 }, Enum.EasingStyle.Quad) end
             if opts.rotate and gh then Tween(gh, 0.2, { Rotation = 90 }, Enum.EasingStyle.Quint) end
         end)
         btn.MouseLeave:Connect(function()
-            Tween(btn, 0.12, { BackgroundColor3 = base })
-            Tween(stroke, 0.12, { Color = rim })
             Tween(scale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
             if gs then Tween(gs, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint) end
             if opts.rotate and gh then Tween(gh, 0.2, { Rotation = 0 }, Enum.EasingStyle.Quint) end
@@ -1893,21 +1919,21 @@ function Library:CreateWindow(cfg)
 
     local closeBtn, closeStroke, closeScale = makeTraffic("CloseBtn", 1, CLOSE_BASE, CLOSE_RIM)
     local closeHolder, _ = Glyph(closeBtn, "close", CLOSE_ICON, 10)
-    wireTraffic(closeBtn, closeStroke, closeScale, CLOSE_BASE, CLOSE_HOVER, CLOSE_RIM, { holder = closeHolder, rotate = true })
+    wireTraffic(closeBtn, closeScale, { holder = closeHolder, rotate = true })
 
     local focusBtn, focusStroke, focusScale = makeTraffic("FocusBtn", 2, FOCUS_BASE, FOCUS_RIM)
     local focusHolder = MaximizeGlyph(focusBtn, FOCUS_ICON, 11)
     local focusGlyphScale = New("UIScale", { Scale = 1, Parent = focusHolder })
-    wireTraffic(focusBtn, focusStroke, focusScale, FOCUS_BASE, FOCUS_HOVER, FOCUS_RIM, { holder = focusHolder, glyphScale = focusGlyphScale })
+    wireTraffic(focusBtn, focusScale, { holder = focusHolder, glyphScale = focusGlyphScale })
 
     local minBtn, minStroke, minScale = makeTraffic("MinBtn", 3, MIN_BASE, MIN_RIM)
     local minHolder, _ = Glyph(minBtn, "minimize", MIN_ICON, 11)
     local minGlyphScale = New("UIScale", { Scale = 1, Parent = minHolder })
-    wireTraffic(minBtn, minStroke, minScale, MIN_BASE, MIN_HOVER, MIN_RIM, { holder = minHolder, glyphScale = minGlyphScale })
+    wireTraffic(minBtn, minScale, { holder = minHolder, glyphScale = minGlyphScale })
 
     local refreshBtn, refreshStroke, refreshScale = makeTraffic("RefreshBtn", 4, REFRESH_BASE, REFRESH_RIM)
     local refreshHolder = RefreshGlyph(refreshBtn, REFRESH_ICON, 12)
-    wireTraffic(refreshBtn, refreshStroke, refreshScale, REFRESH_BASE, REFRESH_HOVER, REFRESH_RIM, { holder = refreshHolder, spin = true })
+    wireTraffic(refreshBtn, refreshScale, { holder = refreshHolder, spin = true })
 
     -- Search filter ------------------------------------------------------
 
@@ -2013,17 +2039,11 @@ function Library:CreateWindow(cfg)
     )
     haloTween:Play()
 
-    -- Status bar: pill gradasi hitam polos (tanpa rim) ------------------
+    -- Status bar: outline gradasi 2px + fill gradasi hitam --------------
 
     local barY = OVERHANG + CARD_H + GAP
-    local bar = New("Frame", {
-        Name = "Bar",
-        Position = UDim2.fromOffset(0, barY),
-        Size = UDim2.fromOffset(WIDTH, BAR_H),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        Parent = root,
-    })
-    Round(bar, BAR_H / 2)
+    GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
+    local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Color3.new(1, 1, 1), 2)
     New("UIGradient", { Color = sampleGradient(barFillAt, 0, BAR_H), Rotation = 90, Parent = bar })
 
     local avatarShell = New("Frame", {
@@ -2145,7 +2165,7 @@ function Library:CreateWindow(cfg)
     local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
     local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
 
-    -- Discord pill ------------------------------------------------------
+    -- Discord pill (flat, tanpa gloss) ----------------------------------
 
     if discord then
         local button = New("TextButton", {
@@ -2162,16 +2182,11 @@ function Library:CreateWindow(cfg)
         local pill = New("Frame", {
             Name = "Pill",
             Size = UDim2.fromScale(1, 1),
-            BackgroundColor3 = Color3.fromRGB(240, 240, 240),
+            BackgroundColor3 = Theme.Discord,
             ZIndex = 3,
             Parent = button,
         })
         Round(pill, DISCORD_H / 2)
-        New("UIGradient", {
-            Color = ColorSequence.new(Theme.Discord, Theme.DiscordEdge),
-            Rotation = 90,
-            Parent = pill,
-        })
         New("UIStroke", {
             Color = Theme.DiscordOutline,
             Thickness = 1,
@@ -2179,16 +2194,6 @@ function Library:CreateWindow(cfg)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = pill,
         })
-        local gloss = New("Frame", {
-            Name = "Gloss",
-            Position = UDim2.fromOffset(8, 3),
-            Size = UDim2.new(1, -16, 0.45, -3),
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BackgroundTransparency = 0.88,
-            ZIndex = 4,
-            Parent = pill,
-        })
-        Round(gloss, 8)
 
         local iconAsset = Library.Icons.discord
         local hasIcon = iconAsset ~= nil and iconAsset ~= ""
@@ -2218,10 +2223,10 @@ function Library:CreateWindow(cfg)
         })
 
         button.MouseEnter:Connect(function()
-            Tween(pill, 0.12, { BackgroundColor3 = Color3.new(1, 1, 1) })
+            Tween(pill, 0.12, { BackgroundColor3 = Theme.Discord:Lerp(Color3.new(1, 1, 1), 0.1) })
         end)
         button.MouseLeave:Connect(function()
-            Tween(pill, 0.12, { BackgroundColor3 = Color3.fromRGB(240, 240, 240) })
+            Tween(pill, 0.12, { BackgroundColor3 = Theme.Discord })
         end)
         button.MouseButton1Down:Connect(function()
             Tween(button, 0.06, { Size = UDim2.fromOffset(DISCORD_W - 3, DISCORD_H - 3) })
