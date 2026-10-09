@@ -1529,195 +1529,103 @@ function Library:CreateWindow(cfg)
 
 	local cx = WIDTH / 2
 	local outerH = CARD_H + STROKE * 2
-	local holeR = NOTCH_R - STROKE
+	local R = NOTCH_R
+	local EXT = 2 -- hidden overlap so no hairline seams appear at fractional UI scales
 
-	-- outline silhouette (underneath). Rows are sampled "inside-safe": a row
-	-- never paints outside the true curve, so no teeth stick into transparent
-	-- space. The smooth circle patches below repaint every curved zone with
-	-- renderer-antialiased geometry, hiding the slice steps completely.
-	for y = -STROKE, CARD_H + STROKE - 1, ROW do
-		local yo = y + STROKE
-		local yb = outerH - yo - ROW
-		local inset = math.max(cornerInset(yo, R_CARD + STROKE), cornerInset(math.max(yb, 0), R_CARD + STROKE))
-		local ol, orr = -STROKE + inset, WIDTH + STROKE - inset
-		local gap = 0
-		if y < holeR then
-			gap = math.sqrt(math.max(holeR * holeR - y * y, 0))
-		end
-		local color = gradAt((y + STROKE) / outerH)
-		local props = {
-			BackgroundColor3 = color,
-			Position = UDim2.fromOffset(ol, y),
-			ZIndex = 1,
-			Parent = panel,
-		}
-		if gap <= 1 or cx - gap <= ol + 1 then
-			props.Size = UDim2.fromOffset(orr - ol, ROW)
-			New("Frame", props)
-		else
-			props.Size = UDim2.fromOffset((cx - gap) - ol, ROW)
-			New("Frame", props)
-			local props2 = {
-				BackgroundColor3 = color,
-				Position = UDim2.fromOffset(cx + gap, y),
-				Size = UDim2.fromOffset(orr - (cx + gap), ROW),
-				ZIndex = 1,
-				Parent = panel,
-			}
-			New("Frame", props2)
-		end
+	-- Geometry rebuilt from solid pieces only (no 2px row slicing):
+	--   * rounded corner blocks (UICorner = real antialiased arcs)
+	--   * plain rectangles between them
+	--   * the notch: a thick ring clipped to the notch columns. The ring paints
+	--     only the area OUTSIDE the notch circle, so the inside stays transparent.
+	-- The outline is the same silhouette grown by STROKE, drawn underneath.
+
+	local function fillAt(y)
+		return Theme.Surface:Lerp(Theme.SurfaceDeep, math.clamp(y / CARD_H, 0, 1))
 	end
 
-	-- fill silhouette (on top), inset by the stroke width, inside-safe
-	for y = 0, CARD_H - 1, ROW do
-		local inset = math.max(cornerInset(y, R_CARD), cornerInset(math.max(CARD_H - y - ROW, 0), R_CARD))
-		local il, ir = inset, WIDTH - inset
-		local gap = 0
-		if y < NOTCH_R then
-			gap = math.sqrt(math.max(NOTCH_R * NOTCH_R - y * y, 0))
-		end
-		local color = Theme.Surface:Lerp(Theme.SurfaceDeep, y / CARD_H)
-		local props = {
-			BackgroundColor3 = color,
-			Position = UDim2.fromOffset(il, y),
-			ZIndex = 2,
-			Parent = panel,
-		}
-		if gap <= 1 or cx - gap <= il + 1 then
-			props.Size = UDim2.fromOffset(ir - il, ROW)
-			New("Frame", props)
-		else
-			props.Size = UDim2.fromOffset((cx - gap) - il, ROW)
-			New("Frame", props)
-			local props2 = {
-				BackgroundColor3 = color,
-				Position = UDim2.fromOffset(cx + gap, y),
-				Size = UDim2.fromOffset(ir - (cx + gap), ROW),
-				ZIndex = 2,
-				Parent = panel,
-			}
-			New("Frame", props2)
-		end
+	local function outlineAt(y)
+		return gradAt((y + STROKE) / outerH)
 	end
 
-	-- Smooth curve patches --------------------------------------------------
-	-- Real circle geometry (renderer-antialiased) layered over every sliced
-	-- zone: the notch outline ring, the notch fill band and the four corner
-	-- quadrants. These repaint the curved boundaries with true arcs, so no
-	-- slice step can ever show ("bergerigi" eliminated).
+	local function seq(top, bottom, colorAt, kink)
+		local keys = { ColorSequenceKeypoint.new(0, colorAt(top)) }
+		if kink and kink > top and kink < bottom then
+			keys[#keys + 1] = ColorSequenceKeypoint.new((kink - top) / (bottom - top), colorAt(kink))
+		end
+		keys[#keys + 1] = ColorSequenceKeypoint.new(1, colorAt(bottom))
+		return ColorSequence.new(keys)
+	end
 
-	local function clipFrame(name, x, y, w, h, z)
-		return New("Frame", {
+	local function block(name, x, y, w, h, z, colorAt, kink, radius)
+		local piece = New("Frame", {
 			Name = name,
 			Position = UDim2.fromOffset(x, y),
 			Size = UDim2.fromOffset(w, h),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			ZIndex = z,
+			Parent = panel,
+		})
+		New("UIGradient", { Color = seq(y, y + h, colorAt, kink), Rotation = 90, Parent = piece })
+		if radius then
+			Round(piece, radius)
+		end
+		return piece
+	end
+
+	-- band [r0, r0 + thick) around the point (cx, 0), clipped to rows y0..y1
+	-- of the notch columns
+	local function notchBand(name, y0, y1, r0, thick, color, z)
+		local clip = New("Frame", {
+			Name = name .. "Clip",
+			Position = UDim2.fromOffset(cx - R - EXT, y0),
+			Size = UDim2.fromOffset(R * 2 + EXT * 2, y1 - y0),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
 			ZIndex = z,
 			Parent = panel,
 		})
-	end
-
-	-- notch outline ring: radial band [NOTCH_R-STROKE, NOTCH_R]
-	local noClip = clipFrame("NotchOutlineClip", cx - NOTCH_R - 4, 0, (NOTCH_R + 4) * 2, NOTCH_R + 4, 1)
-	local noRing = New("Frame", {
-		Position = UDim2.fromOffset(cx - NOTCH_R, -NOTCH_R),
-		Size = UDim2.fromOffset(NOTCH_R * 2, NOTCH_R * 2),
-		BackgroundTransparency = 1,
-		ZIndex = 1,
-		Parent = noClip,
-	})
-	Round(noRing, NOTCH_R)
-	New("UIStroke", {
-		Color = Color3.new(1, 1, 1),
-		Thickness = STROKE,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = noRing,
-	})
-	New("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, gradAt(STROKE / outerH)),
-			ColorSequenceKeypoint.new(0.5, gradAt(STROKE / outerH)),
-			ColorSequenceKeypoint.new(1, gradAt((NOTCH_R + STROKE) / outerH)),
-		}),
-		Rotation = 90,
-		Parent = noRing,
-	})
-
-	-- notch fill band: radial band [NOTCH_R, NOTCH_R+3], flat surface tone
-	local nfClip = clipFrame("NotchFillClip", cx - NOTCH_R - 5, 0, (NOTCH_R + 5) * 2, NOTCH_R + 5, 2)
-	local nfRing = New("Frame", {
-		Position = UDim2.fromOffset(cx - NOTCH_R - 3, -NOTCH_R - 3),
-		Size = UDim2.fromOffset((NOTCH_R + 3) * 2, (NOTCH_R + 3) * 2),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-		Parent = nfClip,
-	})
-	Round(nfRing, NOTCH_R + 3)
-	New("UIStroke", {
-		Color = Theme.Surface,
-		Thickness = 3,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = nfRing,
-	})
-
-	-- four corner quadrants: fill quarter-disc + outline quarter-ring
-	local cornerDefs = {
-		{ cx = R_CARD, cy = R_CARD, top = true },
-		{ cx = WIDTH - R_CARD, cy = R_CARD, top = true },
-		{ cx = R_CARD, cy = CARD_H - R_CARD, top = false },
-		{ cx = WIDTH - R_CARD, cy = CARD_H - R_CARD, top = false },
-	}
-	for _, cdef in ipairs(cornerDefs) do
-		local qx = cdef.cx < cx and 0 or WIDTH - R_CARD
-		local qy = cdef.top and 0 or CARD_H - R_CARD
-
-		local fillClip = clipFrame("CornerFillClip", qx, qy, R_CARD, R_CARD, 2)
-		local disc = New("Frame", {
-			Position = UDim2.fromOffset(cdef.cx - R_CARD, cdef.cy - R_CARD),
-			Size = UDim2.fromOffset(R_CARD * 2, R_CARD * 2),
-			BackgroundColor3 = cdef.top and Theme.Surface or Theme.SurfaceDeep,
-			ZIndex = 2,
-			Parent = fillClip,
-		})
-		Round(disc, R_CARD)
-
-		local orad = R_CARD + STROKE
-		local outClip = clipFrame("CornerOutlineClip", cdef.cx - orad, cdef.cy - orad, orad, orad, 1)
 		local ring = New("Frame", {
-			Position = UDim2.fromOffset(cdef.cx - orad, cdef.cy - orad),
-			Size = UDim2.fromOffset(orad * 2, orad * 2),
+			Name = name,
+			Position = UDim2.fromOffset(R + EXT - r0, -y0 - r0),
+			Size = UDim2.fromOffset(r0 * 2, r0 * 2),
 			BackgroundTransparency = 1,
-			ZIndex = 1,
-			Parent = outClip,
+			ZIndex = z,
+			Parent = clip,
 		})
-		Round(ring, orad)
+		Round(ring, r0)
 		New("UIStroke", {
-			Color = Color3.new(1, 1, 1),
-			Thickness = STROKE,
+			Color = color,
+			Thickness = thick,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			Parent = ring,
 		})
-		local cAt, cMid, cBot
-		if cdef.top then
-			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
-			cMid = gradAt((cdef.cy + STROKE) / outerH)
-			cBot = cMid
-		else
-			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
-			cMid = gradAt((cdef.cy + STROKE) / outerH)
-			cBot = gradAt(1)
-		end
-		New("UIGradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, cAt),
-				ColorSequenceKeypoint.new(0.5, cMid),
-				ColorSequenceKeypoint.new(1, cBot),
-			}),
-			Rotation = 90,
-			Parent = ring,
-		})
 	end
+
+	local kinkY = CARD_H / 2
+	local oR = R_CARD + STROKE
+
+	-- outline silhouette (z = 1)
+	block("OutLeftRound", -STROKE, -STROKE, oR * 2, outerH, 1, outlineAt, kinkY, oR)
+	block("OutRightRound", WIDTH + STROKE - oR * 2, -STROKE, oR * 2, outerH, 1, outlineAt, kinkY, oR)
+	block("OutLeft", R_CARD, -STROKE, cx - R - R_CARD, outerH, 1, outlineAt, kinkY)
+	block("OutRight", cx + R, -STROKE, WIDTH - R_CARD - (cx + R), outerH, 1, outlineAt, kinkY)
+	block("OutMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H + STROKE - R, 1, outlineAt, kinkY)
+
+	-- notch outline: ring band starting at NOTCH_R - STROKE, in three tone steps
+	local holeR = R - STROKE
+	notchBand("NotchOutA", -STROKE, 23, holeR, 80, outlineAt(10), 1)
+	notchBand("NotchOutB", 22, 48, holeR, 80, outlineAt(35), 1)
+	notchBand("NotchOutC", 47, R + 1, holeR, 80, outlineAt(60), 1)
+
+	-- fill silhouette (z = 2)
+	block("FillLeftRound", 0, 0, R_CARD * 2, CARD_H, 2, fillAt, nil, R_CARD)
+	block("FillRightRound", WIDTH - R_CARD * 2, 0, R_CARD * 2, CARD_H, 2, fillAt, nil, R_CARD)
+	block("FillLeft", R_CARD, 0, cx - R - R_CARD, CARD_H, 2, fillAt)
+	block("FillRight", cx + R, 0, WIDTH - R_CARD - (cx + R), CARD_H, 2, fillAt)
+	block("FillMid", cx - R - EXT, R, R * 2 + EXT * 2, CARD_H - R, 2, fillAt)
+
+	-- notch fill: surface colour OUTSIDE the circle only; the circle stays transparent
+	notchBand("NotchFill", 0, R + 1, R, 80, fillAt(R / 3), 2)
 
 	-- invisible drag surface over the panel (content sits above it)
 	local dragFrame = New("Frame", {
