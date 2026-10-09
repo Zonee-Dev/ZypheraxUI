@@ -11,41 +11,47 @@ local DEFAULT_LOGO = "rbxassetid://106764279090045"
 -- Measured tokens -------------------------------------------------------
 
 local Theme = {
-	-- Gradient used by every stroke in the interface (per-element, vertical).
-	-- Electric blue -> royal blue, sampled to sit next to the logo emblem.
-	-- NOTE: keep this a gradient. Replacing the shells below with a flat
-	-- UIStroke is exactly what makes the window look "roblox default".
-	StrokeTop = Color3.fromRGB(88, 166, 255),
-	StrokeMid = Color3.fromRGB(35, 136, 255),
-	StrokeBottom = Color3.fromRGB(27, 79, 216),
+	-- Sapphire gradient used by every stroke in the interface (per-element,
+	-- vertical): bright facet highlight -> sapphire -> deep navy.
+	-- NOTE: keep this a gradient. A flat UIStroke is what makes a window look
+	-- "roblox default".
+	StrokeTop = Color3.fromRGB(96, 170, 255),
+	StrokeMid = Color3.fromRGB(28, 100, 232),
+	StrokeBottom = Color3.fromRGB(10, 46, 138),
 
-	-- Surfaces, deep charcoal with a hint of tonal depth
-	Surface = Color3.fromRGB(41, 41, 46),
-	SurfaceDeep = Color3.fromRGB(36, 36, 41),
-	Raised = Color3.fromRGB(49, 49, 55),
-	Hover = Color3.fromRGB(57, 57, 64),
-	Pressed = Color3.fromRGB(44, 44, 50),
-	Inset = Color3.fromRGB(34, 34, 39),
-	Track = Color3.fromRGB(64, 64, 71),
+	-- Surfaces: deep matte black with a faint cool undertone
+	Surface = Color3.fromRGB(16, 17, 22),
+	SurfaceDeep = Color3.fromRGB(9, 10, 13),
+	Raised = Color3.fromRGB(23, 25, 32),
+	Hover = Color3.fromRGB(31, 35, 46),
+	Pressed = Color3.fromRGB(18, 20, 27),
+	Inset = Color3.fromRGB(8, 9, 12),
+	Track = Color3.fromRGB(40, 44, 56),
 
 	-- Lines
-	Border = Color3.fromRGB(58, 57, 65),
-	BorderStrong = Color3.fromRGB(72, 71, 80),
+	Border = Color3.fromRGB(36, 40, 52),
+	BorderStrong = Color3.fromRGB(50, 56, 72),
 
-	-- Text hierarchy, sampled from the frame
-	Text = Color3.fromRGB(250, 250, 250),
-	TextSecondary = Color3.fromRGB(199, 199, 202),
-	TextTertiary = Color3.fromRGB(140, 140, 145),
+	-- Text hierarchy
+	Text = Color3.fromRGB(245, 247, 251),
+	TextSecondary = Color3.fromRGB(188, 194, 206),
+	TextTertiary = Color3.fromRGB(128, 136, 152),
 
 	-- Brand + semantics
-	Accent = Color3.fromRGB(64, 134, 214),
-	White = Color3.fromRGB(245, 245, 245),     -- badge ring
-	Discord = Color3.fromRGB(64, 128, 245),
-	DiscordEdge = Color3.fromRGB(88, 92, 222),
-	DiscordOutline = Color3.fromRGB(96, 150, 255),
-	DiscordText = Color3.fromRGB(250, 250, 250),
+	Accent = Color3.fromRGB(46, 120, 246),
+	White = Color3.fromRGB(245, 245, 245),     -- avatar / launcher ring
+	Discord = Color3.fromRGB(58, 128, 250),
+	DiscordEdge = Color3.fromRGB(26, 78, 206),
+	DiscordOutline = Color3.fromRGB(120, 172, 255),
+	DiscordText = Color3.fromRGB(255, 255, 255),
 	Success = Color3.fromRGB(80, 178, 128),
+	Warning = Color3.fromRGB(236, 178, 70),
 	Danger = Color3.fromRGB(224, 92, 92),
+
+	-- Brushed steel for the header badges
+	SteelTop = Color3.fromRGB(222, 228, 238),
+	SteelBottom = Color3.fromRGB(148, 156, 170),
+	SteelInk = Color3.fromRGB(12, 20, 38),
 }
 
 -- Geometry, measured then rescaled by k = 1.129 --------------------------
@@ -76,7 +82,7 @@ local INFO_BOX = 13                 -- line box height of the identity block
 local INFO_GAP = 2                  -- breathing room between the lines
 local INFO_TITLE = 13
 local INFO_LABEL_W = 64            -- fixed label column so every value shares one left edge
-local INFO_SIZE = 12
+local INFO_SIZE = 11
 
 local DISCORD_W = 112
 local DISCORD_H = 42
@@ -89,7 +95,7 @@ local CONTENT_BOTTOM = 16
 local Library = {
 	Unloaded = false,
 	Windows = {},
-	Icons = { chevron = "", close = "", minimize = "", discord = "", check = "" },
+	Icons = { chevron = "", close = "", minimize = "", discord = "", check = "", crown = "", info = "", warn = "" },
 }
 
 -- Small utilities --------------------------------------------------------
@@ -171,20 +177,22 @@ local function Fill(parent, name, radius, color, zIndex, inset)
 	return fill
 end
 
-local FONT_FAMILY = "rbxasset://fonts/families/Inter.json"
-local FALLBACK_FAMILY = "rbxasset://fonts/families/SourceSansPro.json"
+-- Typography: Gotham is Roblox's built-in geometric sans. Font.fromEnum is
+-- always available, unlike family JSON paths that can silently fall back to a
+-- default face on some clients (which is what made the old text look off).
+local FONT_BY_WEIGHT = {
+	[Enum.FontWeight.Regular] = Enum.Font.Gotham,
+	[Enum.FontWeight.Medium] = Enum.Font.GothamMedium,
+	[Enum.FontWeight.SemiBold] = Enum.Font.GothamSemibold,
+	[Enum.FontWeight.Bold] = Enum.Font.GothamBold,
+}
 
 local function MakeFont(weight)
-	local ok, font = pcall(function()
-		return Font.new(FONT_FAMILY, weight)
-	end)
+	local ok, font = pcall(Font.fromEnum, FONT_BY_WEIGHT[weight] or Enum.Font.Gotham)
 	if ok and font then
 		return font
 	end
-	local ok2, backup = pcall(function()
-		return Font.new(FALLBACK_FAMILY, weight)
-	end)
-	return ok2 and backup or Font.new(FONT_FAMILY, weight)
+	return Font.new("rbxasset://fonts/families/SourceSansPro.json", weight)
 end
 
 local Typo = {
@@ -306,6 +314,21 @@ local function Glyph(parent, name, color, size)
 		elseif name == "check" then
 			bar(size * 0.34, 2, 45, -size * 0.16, size * 0.06)
 			bar(size * 0.58, 2, -45, size * 0.1, -size * 0.06)
+		elseif name == "crown" then
+			local u = size / 12
+			bar(10.4 * u, 2.4 * u, 0, 0, 4.7 * u)             -- base
+			bar(6 * u, 2 * u, 90, -4 * u, 0.4 * u)            -- left prong
+			bar(8 * u, 2 * u, 90, 0, -0.6 * u)                -- centre prong
+			bar(6 * u, 2 * u, 90, 4 * u, 0.4 * u)             -- right prong
+			bar(2.8 * u, 2.8 * u, 0, -4 * u, -2.6 * u)        -- jewels
+			bar(2.8 * u, 2.8 * u, 0, 0, -4.6 * u)
+			bar(2.8 * u, 2.8 * u, 0, 4 * u, -2.6 * u)
+		elseif name == "info" then
+			bar(2.6, 2.6, 0, 0, -size * 0.3)
+			bar(size * 0.4, 2, 90, 0, size * 0.12)
+		elseif name == "warn" then
+			bar(size * 0.4, 2, 90, 0, -size * 0.12)
+			bar(2.6, 2.6, 0, 0, size * 0.3)
 		end
 	end
 
@@ -406,7 +429,25 @@ function Library:Notify(cfg)
 	local title = Opt(cfg, 1, "Title", "Notice")
 	local content = Opt(cfg, 2, "Content", "")
 	local duration = Opt(cfg, 3, "Duration", 4)
-	local accent = cfg.Color or Theme.Accent
+	local kind = cfg.Type and string.lower(tostring(cfg.Type)) or nil
+	local kindColors = {
+		success = Theme.Success,
+		warning = Theme.Warning,
+		error = Theme.Danger,
+		info = Theme.Accent,
+	}
+	local kindIcon = { success = "check", warning = "warn", error = "close", info = "info" }
+	local accent = cfg.Color or (kind and kindColors[kind]) or Theme.Accent
+	if not kind or not kindIcon[kind] then
+		-- No explicit Type: infer it from the colour so existing calls get a matching icon.
+		kind = "info"
+		for name, color in pairs(kindColors) do
+			local distance = math.abs(accent.R - color.R) + math.abs(accent.G - color.G) + math.abs(accent.B - color.B)
+			if name ~= "info" and distance < 0.2 then
+				kind = name
+			end
+		end
+	end
 
 	notifyOrder += 1
 
@@ -452,7 +493,7 @@ function Library:Notify(cfg)
 	})
 	New("UIPadding", {
 		PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 11),
-		PaddingLeft = UDim.new(0, 15), PaddingRight = UDim.new(0, 30),
+		PaddingLeft = UDim.new(0, 46), PaddingRight = UDim.new(0, 30),
 		Parent = body,
 	})
 	New("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = body })
@@ -480,6 +521,24 @@ function Library:Notify(cfg)
 			Parent = body,
 		})
 	end
+
+	local iconBadge = New("Frame", {
+		Name = "Icon",
+		Position = UDim2.fromOffset(16, 10),
+		Size = UDim2.fromOffset(22, 22),
+		BackgroundColor3 = accent,
+		BackgroundTransparency = 0.82,
+		Parent = toast,
+	})
+	Round(iconBadge, 11)
+	New("UIStroke", {
+		Color = accent,
+		Thickness = 1,
+		Transparency = 0.55,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = iconBadge,
+	})
+	Glyph(iconBadge, kindIcon[kind], accent, 12)
 
 	local closer, closePaint = Glyph(toast, "close", Theme.TextTertiary, 12)
 	closer.AnchorPoint = Vector2.new(1, 0)
@@ -1630,6 +1689,92 @@ function Library:CreateWindow(cfg)
 		Parent = panel,
 	})
 
+	-- Header badges: brushed-steel plates flanking the logo notch -----------------
+
+	local BADGE_W, BADGE_H, BADGE_Y, BADGE_EDGE = 116, 24, 15, 14
+
+	local function SteelBadge(name, x, text, withCrown)
+		local plate = New("Frame", {
+			Name = name,
+			Position = UDim2.fromOffset(x, BADGE_Y),
+			Size = UDim2.fromOffset(BADGE_W, BADGE_H),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			ZIndex = 5,
+			Parent = panel,
+		})
+		Round(plate, 5)
+		New("UIGradient", {
+			Color = ColorSequence.new(Theme.SteelTop, Theme.SteelBottom),
+			Rotation = 90,
+			Parent = plate,
+		})
+
+		-- Polished edge: bright top lip falling to a dark lower edge.
+		local edge = New("UIStroke", {
+			Color = Color3.new(1, 1, 1),
+			Thickness = 1,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Parent = plate,
+		})
+		New("UIGradient", {
+			Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(82, 90, 108)),
+			Rotation = 90,
+			Parent = edge,
+		})
+
+		-- Brushed grain: fine horizontal streaks at uneven spacing, inset so
+		-- they never poke past the rounded corners.
+		local grain = { 3, 6, 9, 11, 14, 17, 20, 22 }
+		for i, y in ipairs(grain) do
+			local light = i % 2 == 0
+			New("Frame", {
+				Position = UDim2.fromOffset(5, y),
+				Size = UDim2.new(1, -10, 0, 1),
+				BackgroundColor3 = light and Color3.new(1, 1, 1) or Color3.new(0, 0, 0),
+				BackgroundTransparency = light and 0.7 or 0.93,
+				ZIndex = 6,
+				Parent = plate,
+			})
+		end
+
+		local row = New("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 7,
+			Parent = plate,
+		})
+		New("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, 5),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Parent = row,
+		})
+		if withCrown then
+			local crown = Glyph(row, "crown", Theme.SteelInk, 12)
+			crown.LayoutOrder = 1
+		end
+		Label({
+			LayoutOrder = 2,
+			Size = UDim2.new(0, 0, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Weight = "SemiBold",
+			Text = text,
+			TextSize = 9,
+			TextColor3 = Theme.SteelInk,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ZIndex = 8,
+			Parent = row,
+		})
+		return plate
+	end
+
+	if cfg.ShowBadges ~= false then
+		SteelBadge("HubBadge", BADGE_EDGE, cfg.LeftBadge or "Z-EXECUTOR HUB", false)
+		SteelBadge("EditionBadge", WIDTH - BADGE_EDGE - BADGE_W, cfg.RightBadge or "PREMIUM EDITION", true)
+	end
+
 	-- Content area ----------------------------------------------------------
 
 	local content = New("Frame", {
@@ -1692,6 +1837,32 @@ function Library:CreateWindow(cfg)
 		ZIndex = 8,
 		Parent = badgeCore,
 	})
+
+	-- Pulsing sapphire halo, just outside the medallion and inside the notch gap
+	local HALO_D = BADGE_D + 6
+	local halo = New("Frame", {
+		Name = "Halo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, OVERHANG),
+		Size = UDim2.fromOffset(HALO_D, HALO_D),
+		BackgroundTransparency = 1,
+		ZIndex = 5,
+		Parent = root,
+	})
+	Round(halo, HALO_D / 2)
+	local haloStroke = New("UIStroke", {
+		Color = accents.top,
+		Thickness = 1.5,
+		Transparency = 0.25,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = halo,
+	})
+	local haloTween = TweenService:Create(
+		haloStroke,
+		TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Transparency = 0.85, Thickness = 3.5 }
+	)
+	haloTween:Play()
 
 	-- Status bar -------------------------------------------------------------
 
@@ -1821,6 +1992,10 @@ function Library:CreateWindow(cfg)
 	local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
 
 	-- Discord pill ------------------------------------------------------------
+	-- The gradient lives on a child frame, never on the TextButton itself: a
+	-- UIGradient on a text object also tints the text, which is what turned the
+	-- white label sapphire-on-sapphire. Drop an asset id into Library.Icons.discord
+	-- to get the white logo mark beside the label.
 
 	if discord then
 		local button = New("TextButton", {
@@ -1828,28 +2003,75 @@ function Library:CreateWindow(cfg)
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -DISCORD_MARGIN, 0.5, 0),
 			Size = UDim2.fromOffset(DISCORD_W, DISCORD_H),
-			BackgroundColor3 = Color3.fromRGB(240, 240, 240),
+			BackgroundTransparency = 1,
 			AutoButtonColor = false,
-			Text = "discord",
-			FontFace = Typo.Medium,
-			TextSize = 13,
-			TextColor3 = Theme.DiscordText,
+			Text = "",
 			ZIndex = 3,
 			Parent = bar,
 		})
-		Round(button, DISCORD_H / 2)
+		local pill = New("Frame", {
+			Name = "Pill",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.fromRGB(240, 240, 240),
+			ZIndex = 3,
+			Parent = button,
+		})
+		Round(pill, DISCORD_H / 2)
 		New("UIGradient", {
 			Color = ColorSequence.new(Theme.Discord, Theme.DiscordEdge),
 			Rotation = 90,
+			Parent = pill,
+		})
+		New("UIStroke", {
+			Color = Theme.DiscordOutline,
+			Thickness = 1,
+			Transparency = 0.45,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Parent = pill,
+		})
+		local gloss = New("Frame", {
+			Name = "Gloss",
+			Position = UDim2.fromOffset(8, 3),
+			Size = UDim2.new(1, -16, 0.45, -3),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.88,
+			ZIndex = 4,
+			Parent = pill,
+		})
+		Round(gloss, 8)
+
+		local iconAsset = Library.Icons.discord
+		local hasIcon = iconAsset ~= nil and iconAsset ~= ""
+		if hasIcon then
+			New("ImageLabel", {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, 16, 0.5, 0),
+				Size = UDim2.fromOffset(18, 18),
+				BackgroundTransparency = 1,
+				Image = iconAsset,
+				ImageColor3 = Color3.new(1, 1, 1),
+				ScaleType = Enum.ScaleType.Fit,
+				ZIndex = 5,
+				Parent = button,
+			})
+		end
+		Label({
+			Position = UDim2.fromOffset(hasIcon and 34 or 0, 0),
+			Size = UDim2.new(1, hasIcon and -42 or 0, 1, 0),
+			Weight = "SemiBold",
+			Text = "Discord",
+			TextSize = 13,
+			TextColor3 = Theme.DiscordText,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ZIndex = 5,
 			Parent = button,
 		})
-		New("UIStroke", { Color = Theme.DiscordOutline, Thickness = 1, Transparency = 0.55, Parent = button })
 
 		button.MouseEnter:Connect(function()
-			Tween(button, 0.12, { BackgroundColor3 = Color3.new(1, 1, 1) })
+			Tween(pill, 0.12, { BackgroundColor3 = Color3.new(1, 1, 1) })
 		end)
 		button.MouseLeave:Connect(function()
-			Tween(button, 0.12, { BackgroundColor3 = Color3.fromRGB(240, 240, 240) })
+			Tween(pill, 0.12, { BackgroundColor3 = Color3.fromRGB(240, 240, 240) })
 		end)
 		button.MouseButton1Down:Connect(function()
 			Tween(button, 0.06, { Size = UDim2.fromOffset(DISCORD_W - 3, DISCORD_H - 3) })
@@ -1954,6 +2176,9 @@ function Library:CreateWindow(cfg)
 	end
 
 	function window:Destroy()
+		pcall(function()
+			haloTween:Cancel()
+		end)
 		for _, connection in ipairs(connections) do
 			connection:Disconnect()
 		end
@@ -1998,7 +2223,61 @@ function Library:CreateWindow(cfg)
 	-- Tabs ------------------------------------------------------------------------
 
 	local tabs = {}
-	local tabStrip, tabThumb, pagesHolder
+	local selectedTab
+	local tabStrip, tabThumb, tabButtons, pagesHolder
+
+	local STRIP_W = WIDTH - CONTENT_X * 2
+	local STRIP_PAD, STRIP_GAP = 3, 3
+
+	-- The thumb is placed from the known button widths, not from AbsolutePosition:
+	-- absolute values are screen pixels (they drift under UIScale) and are stale
+	-- until the layout has run, which left the highlight on the wrong tab.
+	local function layoutThumb(animate)
+		if not (tabThumb and selectedTab and selectedTab.Width) then
+			return
+		end
+		local total, offset = 0, nil
+		for _, tab in ipairs(tabs) do
+			if tab.Width then
+				if tab == selectedTab then
+					offset = total
+				end
+				total += tab.Width + STRIP_GAP
+			end
+		end
+		total -= STRIP_GAP
+		if not offset then
+			return
+		end
+		local x = STRIP_PAD + ((STRIP_W - STRIP_PAD * 2) - total) / 2 + offset
+		local goalPosition = UDim2.fromOffset(x, 3)
+		local goalSize = UDim2.new(0, selectedTab.Width, 1, -6)
+		tabThumb.Visible = true
+		if animate then
+			Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
+		else
+			tabThumb.Position = goalPosition
+			tabThumb.Size = goalSize
+		end
+	end
+
+	local function selectTab(selected, animate)
+		selectedTab = selected
+		for _, tab in ipairs(tabs) do
+			local active = tab == selected
+			tab.Active = active
+			tab.Page.Visible = active
+			if active then
+				tab.Page.CanvasPosition = Vector2.new(0, 0)
+			end
+			if tab.ButtonLabel then
+				Tween(tab.ButtonLabel, 0.15, {
+					TextColor3 = active and Color3.new(1, 1, 1) or Theme.TextTertiary,
+				})
+			end
+		end
+		layoutThumb(animate)
+	end
 
 	local function buildTabStrip()
 		tabStrip = New("Frame", {
@@ -2009,34 +2288,59 @@ function Library:CreateWindow(cfg)
 			Parent = content,
 		})
 		Round(tabStrip, 8)
+		New("UIStroke", {
+			Color = Theme.Border,
+			Thickness = 1,
+			Transparency = 0.2,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Parent = tabStrip,
+		})
 		tabThumb = New("Frame", {
 			Name = "Thumb",
-			Position = UDim2.fromOffset(3, 3),
+			Position = UDim2.fromOffset(STRIP_PAD, 3),
 			Size = UDim2.new(0, 0, 1, -6),
 			BackgroundColor3 = Color3.new(1, 1, 1),
+			Visible = false,
 			ZIndex = 2,
 			Parent = tabStrip,
 		})
 		Round(tabThumb, 6)
+		-- Deep enough sapphire that the white label keeps >4:1 contrast.
 		New("UIGradient", {
-			Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, accents.top),
-			ColorSequenceKeypoint.new(1, accents.mid),
-		}),
+			Color = ColorSequence.new(
+				accents.mid:Lerp(accents.top, 0.25),
+				accents.bottom:Lerp(accents.mid, 0.4)
+			),
 			Rotation = 0,
 			Parent = tabThumb,
 		})
-		local layout = New("UIListLayout", {
-			Padding = UDim.new(0, 3),
+		New("UIStroke", {
+			Color = accents.top,
+			Thickness = 1,
+			Transparency = 0.5,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Parent = tabThumb,
+		})
+		-- Buttons live in their own holder so the layout never touches the thumb
+		-- (a UIListLayout on the strip itself would also position the thumb).
+		tabButtons = New("Frame", {
+			Name = "Buttons",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 3,
+			Parent = tabStrip,
+		})
+		New("UIListLayout", {
+			Padding = UDim.new(0, STRIP_GAP),
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Parent = tabStrip,
+			Parent = tabButtons,
 		})
 		New("UIPadding", {
-			PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 3),
-			Parent = tabStrip,
+			PaddingLeft = UDim.new(0, STRIP_PAD), PaddingRight = UDim.new(0, STRIP_PAD),
+			Parent = tabButtons,
 		})
 
 		pagesHolder = New("Frame", {
@@ -2049,47 +2353,63 @@ function Library:CreateWindow(cfg)
 		})
 	end
 
-	local function selectTab(selected)
-		for _, tab in ipairs(tabs) do
-			local active = tab == selected
-			tab.Active = active
-			tab.Page.Visible = active
-			if active then
-				tab.Page.CanvasPosition = Vector2.new(0, 0)
+	local function makeTabButton(tab)
+		tab.Width = math.max(62, math.floor(string.len(tab.Name) * 7.4 + 26))
+		local button = New("TextButton", {
+			Size = UDim2.new(0, tab.Width, 1, -6),
+			LayoutOrder = tab.Order,
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 3,
+			Parent = tabButtons,
+		})
+		local buttonLabel = Label({
+			Size = UDim2.fromScale(1, 1),
+			Weight = "SemiBold",
+			Text = tab.Name,
+			TextSize = 12,
+			TextColor3 = tab.Active and Color3.new(1, 1, 1) or Theme.TextTertiary,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Parent = button,
+		})
+		tab.Button = button
+		tab.ButtonLabel = buttonLabel
+		button.MouseEnter:Connect(function()
+			if not tab.Active then
+				Tween(buttonLabel, 0.1, { TextColor3 = Theme.TextSecondary })
 			end
-			if tab.ButtonLabel then
-				tab.ButtonLabel.TextColor3 = active and Theme.Text or Theme.TextTertiary
+		end)
+		button.MouseLeave:Connect(function()
+			if not tab.Active then
+				Tween(buttonLabel, 0.1, { TextColor3 = Theme.TextTertiary })
 			end
-		end
-		if tabThumb and selected and selected.Button then
-			local button = selected.Button
-			tabThumb.Visible = true
-			Tween(tabThumb, 0.2, {
-				Position = UDim2.fromOffset(button.AbsolutePosition.X - tabStrip.AbsolutePosition.X, 3),
-				Size = UDim2.new(0, button.AbsoluteSize.X, 1, -6),
-			}, Enum.EasingStyle.Quint)
-		end
+		end)
+		button.Activated:Connect(function()
+			selectTab(tab, true)
+		end)
 	end
 
+	-- The first tab is selected by default; pass Default = true on another tab to override.
 	function window:AddTab(tabCfg)
-		local name
+		local name, default
 		if type(tabCfg) == "table" then
 			name = Opt(tabCfg, 1, "Name", "Tab")
+			default = tabCfg.Default
 		else
 			name = tostring(tabCfg or "Tab")
 		end
 
-		local holder = content
 		if not tabStrip and #tabs >= 1 then
-			-- A second tab appears: promote existing pages under a tab strip.
+			-- A second tab appears: promote the existing page under a tab strip
+			-- and give the first tab its button too.
 			buildTabStrip()
 			for _, existing in ipairs(tabs) do
 				existing.Page.Parent = pagesHolder
+				makeTabButton(existing)
 			end
 		end
-		if tabStrip then
-			holder = pagesHolder
-		end
+		local holder = tabStrip and pagesHolder or content
 
 		local page = New("ScrollingFrame", {
 			Name = name,
@@ -2107,41 +2427,18 @@ function Library:CreateWindow(cfg)
 		New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
 		New("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = page })
 
-		local tab = { Page = page, Active = false, Name = name }
+		local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
 		table.insert(tabs, tab)
 
 		if tabStrip then
-			local button = New("TextButton", {
-				Size = UDim2.new(0, math.max(56, string.len(name) * 7 + 22), 1, -6),
-				LayoutOrder = #tabs,
-				BackgroundColor3 = Color3.new(1, 1, 1),
-				BackgroundTransparency = 1,
-				Text = "",
-				AutoButtonColor = false,
-				ZIndex = 3,
-				Parent = tabStrip,
-			})
-			Round(button, 6)
-			local buttonLabel = Label({
-				Size = UDim2.fromScale(1, 1),
-				Weight = "Medium",
-				Text = name,
-				TextSize = 12,
-				TextColor3 = Theme.TextTertiary,
-				TextXAlignment = Enum.TextXAlignment.Center,
-				Parent = button,
-			})
-			tab.Button = button
-			tab.ButtonLabel = buttonLabel
-			button.Activated:Connect(function()
-				selectTab(tab)
-			end)
+			makeTabButton(tab)
 		end
 
-		selectTab(tab)
-		task.defer(function()
-			selectTab(tab) -- re-position the thumb once absolutes are valid
-		end)
+		if #tabs == 1 or default then
+			selectTab(tab, false)
+		else
+			layoutThumb(false) -- the strip is centred, so adding a tab shifts the selected one
+		end
 
 		return BuildItems(page, accents)
 	end
