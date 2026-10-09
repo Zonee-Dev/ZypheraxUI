@@ -2423,24 +2423,16 @@ function Library:CreateWindow(cfg)
     local selectedTab
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
 
-    local STRIP_H = 30
+    local STRIP_H = 34           -- strip sedikit lebih tinggi
     local STRIP_OUT = 2          -- outline kiri/kanan
-    local STRIP_OUT_V = 4        -- ⬆️ outline atas/bawah dipertebal 3 → 4
+    local STRIP_OUT_V = 4        -- outline atas/bawah LEBIH TEBAL (abu2)
     local SCROLL_INSET = 2
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local IND_H = 2              -- ⬇️ tinggi indicator diperkecil 3 → 2
-    local IND_W_RATIO = 0.58     -- ⬇️ lebar indicator = 58% dari tab (lebih compact)
-    local IND_Y = STRIP_H + 3
-
-    -- Warna base thumb: gunakan ujung gelap gradient supaya aliasing UICorner
-    -- tidak menampilkan garis putih terang.
-    local THUMB_BASE = accents.bottom:Lerp(accents.mid, 0.35)
-
-    local function indicatorWidth()
-        return math.floor(TAB_W * IND_W_RATIO)
-    end
+    local IND_W = 48             -- scrollbar pill kecil
+    local IND_H = 2
+    local IND_Y = STRIP_H + 4    -- di bawah strip
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
@@ -2452,16 +2444,13 @@ function Library:CreateWindow(cfg)
         end
         local idx = (selectedTab.Order or 1) - 1
         local trackX = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        -- center indicator di dalam lebar tab
-        local indW = indicatorWidth()
-        local centeredX = trackX + (TAB_W - indW) / 2
-        local canvasX = tabScroll.CanvasPosition.X
+        local center = trackX + TAB_W / 2 - tabScroll.CanvasPosition.X
         local viewportW = tabScroll.AbsoluteSize.X
-        local viewX = centeredX - canvasX
-        local visible = (viewX + indW > 0) and (viewX < viewportW)
-        viewX = math.clamp(viewX, 0, math.max(viewportW - indW, 0))
+        local x = center - IND_W / 2
+        local visible = (center > 0) and (center < viewportW)
+        x = math.clamp(x, 0, math.max(viewportW - IND_W, 0))
         tabIndicator.Visible = visible
-        local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + viewX, IND_Y)
+        local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + x, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
@@ -2508,10 +2497,11 @@ function Library:CreateWindow(cfg)
     end
 
     local function buildTabStrip()
+        -- Shell outline abu2 (Border, bukan BorderStrong agar tidak terbaca putih)
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Size = UDim2.new(1, 0, 0, STRIP_H),
-            BackgroundColor3 = Theme.BorderStrong,
+            BackgroundColor3 = Theme.Border,
             LayoutOrder = 0,
             Parent = content,
         })
@@ -2548,12 +2538,12 @@ function Library:CreateWindow(cfg)
             Parent = tabScroll,
         })
 
-        -- Thumb pill: base color GELAP (hilangkan garis putih akibat aliasing)
+        -- Thumb pill gradasi; base color BIRU (bukan putih) -> tiada garis putih
         tabThumb = New("Frame", {
             Name = "Thumb",
             Position = UDim2.fromOffset(TRACK_PAD, 0),
             Size = UDim2.new(0, TAB_W, 1, 0),
-            BackgroundColor3 = THUMB_BASE,
+            BackgroundColor3 = accents.mid,
             Visible = false,
             ZIndex = 1,
             Parent = tabTrack,
@@ -2588,13 +2578,12 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        -- Indicator pill kecil di BAWAH strip: tinggi 2px, lebar 58% tab, centered
-        local indW = indicatorWidth()
+        -- Scrollbar pill KECIL di bawah strip, center di tab terpilih
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET, IND_Y),
-            Size = UDim2.fromOffset(indW, IND_H),
-            BackgroundColor3 = accents.mid,
+            Size = UDim2.fromOffset(IND_W, IND_H),
+            BackgroundColor3 = accents.top,
             Visible = false,
             Parent = content,
         })
@@ -2611,8 +2600,8 @@ function Library:CreateWindow(cfg)
 
         pagesHolder = New("Frame", {
             Name = "Pages",
-            Position = UDim2.fromOffset(0, STRIP_H + 10),
-            Size = UDim2.new(1, 0, 1, -(STRIP_H + 10)),
+            Position = UDim2.fromOffset(0, STRIP_H + 12),
+            Size = UDim2.new(1, 0, 1, -(STRIP_H + 12)),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             Parent = content,
