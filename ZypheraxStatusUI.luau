@@ -57,11 +57,10 @@ local TOTAL_H = CARD_H + GAP + BAR_H
 local R_CARD = 29
 local STROKE = 2
 
--- ⬇️ PERUBAHAN: notch & badge lebih kecil, posisi lebih ke atas
-local BADGE_D = 110                 -- was 124
-local NOTCH_R = 64                  -- was 72
+local BADGE_D = 110
+local NOTCH_R = 64
 local NOTCH_GAP = NOTCH_R - BADGE_D / 2
-local OVERHANG = BADGE_D / 2        -- otomatis ikut kecil (55px, was 62px)
+local OVERHANG = BADGE_D / 2
 
 local AVATAR = 54
 local AVATAR_IMG = 44
@@ -81,6 +80,24 @@ local DISCORD_MARGIN = 16
 local CONTENT_X = 16
 local CONTENT_TOP = NOTCH_R + 12
 local CONTENT_BOTTOM = 16
+
+-- Header row (search + minimize + close): satu garis, margin seragam
+local HEADER_Y = 18
+local HEADER_H = 30
+local HEADER_MARGIN = 14
+local HEADER_GAP = 8
+local SEARCH_W = 128
+
+-- Traffic-light defaults: minimize kuning, close merah (tukar di sini bila mau)
+local MIN_BASE = Theme.Warning
+local MIN_HOVER = Theme.Warning:Lerp(Color3.new(1, 1, 1), 0.14)
+local MIN_RIM = Theme.Warning:Lerp(Color3.new(0, 0, 0), 0.28)
+local MIN_ICON = Color3.fromRGB(48, 36, 6)
+
+local CLOSE_BASE = Theme.Danger
+local CLOSE_HOVER = Theme.Danger:Lerp(Color3.new(1, 1, 1), 0.14)
+local CLOSE_RIM = Theme.Danger:Lerp(Color3.new(0, 0, 0), 0.28)
+local CLOSE_ICON = Color3.fromRGB(255, 255, 255)
 
 local Library = {
     Unloaded = false,
@@ -1692,15 +1709,14 @@ function Library:CreateWindow(cfg)
         Parent = panel,
     })
 
-    -- Header controls ---------------------------------------------------
+    -- Header: search kiri, minimize (kuning) + close (merah) kanan --------
 
-    local HEADER_Y = 24
-    local HEADER_H = 28
+    local searchFocused = false
 
     local searchFrame = New("Frame", {
         Name = "Search",
-        Position = UDim2.fromOffset(14, HEADER_Y),
-        Size = UDim2.fromOffset(124, HEADER_H),
+        Position = UDim2.fromOffset(HEADER_MARGIN, HEADER_Y),
+        Size = UDim2.fromOffset(SEARCH_W, HEADER_H),
         BackgroundColor3 = Theme.Inset,
         ZIndex = 5,
         Parent = panel,
@@ -1712,13 +1728,12 @@ function Library:CreateWindow(cfg)
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = searchFrame,
     })
-    local searchIconHolder = SearchIcon(searchFrame, Theme.TextTertiary, 12)
-    searchIconHolder.Position = UDim2.new(0, 10, 0.5, 0)
+    SearchIcon(searchFrame, Theme.TextTertiary, 12).Position = UDim2.new(0, 11, 0.5, 0)
 
     local searchBox = New("TextBox", {
         Name = "Input",
-        Position = UDim2.fromOffset(28, 0),
-        Size = UDim2.new(1, -36, 1, 0),
+        Position = UDim2.fromOffset(30, 0),
+        Size = UDim2.new(1, -40, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "Search...",
@@ -1734,18 +1749,31 @@ function Library:CreateWindow(cfg)
     })
 
     searchBox.Focused:Connect(function()
+        searchFocused = true
         searchStroke.Color = accents.top
     end)
     searchBox.FocusLost:Connect(function()
+        searchFocused = false
         searchStroke.Color = Theme.Border
     end)
+    searchFrame.MouseEnter:Connect(function()
+        if not searchFocused then
+            Tween(searchStroke, 0.12, { Color = Theme.BorderStrong })
+        end
+    end)
+    searchFrame.MouseLeave:Connect(function()
+        if not searchFocused then
+            Tween(searchStroke, 0.12, { Color = Theme.Border })
+        end
+    end)
 
+    -- Minimize: kuning default, hover = pop + glyph membesar
     local minBtn = New("TextButton", {
         Name = "MinBtn",
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -(14 + HEADER_H + 8), 0, HEADER_Y),
+        Position = UDim2.new(1, -(HEADER_MARGIN + HEADER_H + HEADER_GAP), 0, HEADER_Y),
         Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = Theme.Inset,
+        BackgroundColor3 = MIN_BASE,
         Text = "",
         AutoButtonColor = false,
         ZIndex = 5,
@@ -1753,19 +1781,41 @@ function Library:CreateWindow(cfg)
     })
     Round(minBtn, HEADER_H / 2)
     local minStroke = New("UIStroke", {
-        Color = Theme.Border,
+        Color = MIN_RIM,
         Thickness = 1,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = minBtn,
     })
-    local _, minPaint = Glyph(minBtn, "minimize", Theme.TextSecondary, 12)
+    local minScale = New("UIScale", { Scale = 1, Parent = minBtn })
+    local minHolder, minPaint = Glyph(minBtn, "minimize", MIN_ICON, 12)
+    local minGlyphScale = New("UIScale", { Scale = 1, Parent = minHolder })
 
+    minBtn.MouseEnter:Connect(function()
+        Tween(minBtn, 0.12, { BackgroundColor3 = MIN_HOVER })
+        Tween(minStroke, 0.12, { Color = MIN_BASE })
+        Tween(minScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
+        Tween(minGlyphScale, 0.16, { Scale = 1.2 }, Enum.EasingStyle.Quint)
+    end)
+    minBtn.MouseLeave:Connect(function()
+        Tween(minBtn, 0.12, { BackgroundColor3 = MIN_BASE })
+        Tween(minStroke, 0.12, { Color = MIN_RIM })
+        Tween(minScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
+        Tween(minGlyphScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
+    end)
+    minBtn.MouseButton1Down:Connect(function()
+        Tween(minScale, 0.06, { Scale = 0.92 })
+    end)
+    minBtn.MouseButton1Up:Connect(function()
+        Tween(minScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint)
+    end)
+
+    -- Close: merah default, hover = pop + glyph berputar 90°
     local closeBtn = New("TextButton", {
         Name = "CloseBtn",
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, HEADER_Y),
+        Position = UDim2.new(1, -HEADER_MARGIN, 0, HEADER_Y),
         Size = UDim2.fromOffset(HEADER_H, HEADER_H),
-        BackgroundColor3 = Theme.Inset,
+        BackgroundColor3 = CLOSE_BASE,
         Text = "",
         AutoButtonColor = false,
         ZIndex = 5,
@@ -1773,33 +1823,34 @@ function Library:CreateWindow(cfg)
     })
     Round(closeBtn, HEADER_H / 2)
     local closeStroke = New("UIStroke", {
-        Color = Theme.Border,
+        Color = CLOSE_RIM,
         Thickness = 1,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = closeBtn,
     })
-    local _, closePaint = Glyph(closeBtn, "close", Theme.TextSecondary, 11)
+    local closeScale = New("UIScale", { Scale = 1, Parent = closeBtn })
+    local closeHolder, closePaint = Glyph(closeBtn, "close", CLOSE_ICON, 11)
 
-    minBtn.MouseEnter:Connect(function()
-        Tween(minBtn, 0.12, { BackgroundColor3 = Theme.Hover })
-        Tween(minStroke, 0.12, { Color = Theme.BorderStrong })
-        minPaint(Theme.Text, 0.1)
-    end)
-    minBtn.MouseLeave:Connect(function()
-        Tween(minBtn, 0.12, { BackgroundColor3 = Theme.Inset })
-        Tween(minStroke, 0.12, { Color = Theme.Border })
-        minPaint(Theme.TextSecondary, 0.1)
-    end)
     closeBtn.MouseEnter:Connect(function()
-        Tween(closeBtn, 0.12, { BackgroundColor3 = Theme.Danger })
-        Tween(closeStroke, 0.12, { Color = Theme.Danger })
-        closePaint(Color3.new(1, 1, 1), 0.1)
+        Tween(closeBtn, 0.12, { BackgroundColor3 = CLOSE_HOVER })
+        Tween(closeStroke, 0.12, { Color = CLOSE_BASE })
+        Tween(closeScale, 0.16, { Scale = 1.08 }, Enum.EasingStyle.Quint)
+        Tween(closeHolder, 0.2, { Rotation = 90 }, Enum.EasingStyle.Quint)
     end)
     closeBtn.MouseLeave:Connect(function()
-        Tween(closeBtn, 0.12, { BackgroundColor3 = Theme.Inset })
-        Tween(closeStroke, 0.12, { Color = Theme.Border })
-        closePaint(Theme.TextSecondary, 0.1)
+        Tween(closeBtn, 0.12, { BackgroundColor3 = CLOSE_BASE })
+        Tween(closeStroke, 0.12, { Color = CLOSE_RIM })
+        Tween(closeScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
+        Tween(closeHolder, 0.2, { Rotation = 0 }, Enum.EasingStyle.Quint)
     end)
+    closeBtn.MouseButton1Down:Connect(function()
+        Tween(closeScale, 0.06, { Scale = 0.92 })
+    end)
+    closeBtn.MouseButton1Up:Connect(function()
+        Tween(closeScale, 0.12, { Scale = 1.08 }, Enum.EasingStyle.Quint)
+    end)
+
+    -- Search filter ------------------------------------------------------
 
     local currentSearchPage = nil
 
@@ -1819,33 +1870,7 @@ function Library:CreateWindow(cfg)
 
     searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
 
-    if cfg.ShowBadges ~= false then
-        Label({
-            Name = "LeftBadge",
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 18, 0, 22),
-            Size = UDim2.fromOffset(160, 14),
-            Weight = "SemiBold",
-            Text = cfg.LeftBadge or "Z-EXECUTOR HUB",
-            TextSize = 10,
-            TextColor3 = Theme.TextTertiary,
-            ZIndex = 4,
-            Parent = panel,
-        })
-        Label({
-            Name = "RightBadge",
-            AnchorPoint = Vector2.new(1, 1),
-            Position = UDim2.new(1, -18, 0, 22),
-            Size = UDim2.fromOffset(160, 14),
-            Weight = "SemiBold",
-            Text = cfg.RightBadge or "PREMIUM EDITION",
-            TextSize = 10,
-            TextColor3 = Theme.TextTertiary,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            ZIndex = 4,
-            Parent = panel,
-        })
-    end
+    -- Content area ------------------------------------------------------
 
     local content = New("Frame", {
         Name = "Content",
@@ -2489,7 +2514,7 @@ function Library:CreateWindow(cfg)
             Visible = false,
             Parent = holder,
         })
-        New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
+        New("UIListLayout", { Padding = UDim2.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
         New("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = page })
 
         local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
