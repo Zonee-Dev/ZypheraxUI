@@ -2418,8 +2418,6 @@ function Library:CreateWindow(cfg)
     end))
 
     -- Tabs ----------------------------------------------------------------
-    -- Strip = SATU pill gelap recessed (tanpa shell/inner/outline) sehingga
-    -- tidak ada ring terang yang bisa tampil sebagai garis putih.
 
     local tabs = {}
     local selectedTab
@@ -2431,6 +2429,7 @@ function Library:CreateWindow(cfg)
     local TRACK_PAD = 2
     local TAB_W = 92
     local IND_H = 3
+    local IND_W = 44             -- scrollbar pill pendek & elegan
     local IND_Y = STRIP_H + 3
 
     local function layoutIndicator(animate)
@@ -2442,14 +2441,14 @@ function Library:CreateWindow(cfg)
             return
         end
         local idx = (selectedTab.Order or 1) - 1
-        local trackX = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        local tabCenter = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
         local canvasX = tabScroll.CanvasPosition.X
         local viewportW = tabScroll.AbsoluteSize.X
-        local viewX = trackX - canvasX
-        local visible = (viewX + TAB_W > 0) and (viewX < viewportW)
-        viewX = math.clamp(viewX, 0, math.max(viewportW - TAB_W, 0))
+        local viewCenter = tabCenter - canvasX
+        local visible = viewCenter > 0 and viewCenter < viewportW
+        local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewportW - IND_W, 0))
         tabIndicator.Visible = visible
-        local goal = UDim2.fromOffset(SCROLL_PAD + viewX, IND_Y)
+        local goal = UDim2.fromOffset(SCROLL_PAD + x, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
@@ -2569,7 +2568,7 @@ function Library:CreateWindow(cfg)
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(SCROLL_PAD, IND_Y),
-            Size = UDim2.fromOffset(TAB_W, IND_H),
+            Size = UDim2.fromOffset(IND_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             Parent = content,
