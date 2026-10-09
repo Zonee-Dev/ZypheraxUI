@@ -52,7 +52,7 @@ local Theme = {
 
 local WIDTH = 420
 local CARD_H = 301
-local GAP = 14
+local GAP = 16
 local BAR_H = 74
 local TOTAL_H = CARD_H + GAP + BAR_H
 
@@ -68,18 +68,19 @@ local NOTCH_GAP = NOTCH_R - BADGE_D / 2   -- transparent breathing room (10px)
 local OVERHANG = BADGE_D / 2        -- logo centre sits on the panel top edge
 
 local AVATAR = 54
-local AVATAR_IMG = 38
+local AVATAR_IMG = 44
 local AVATAR_MARGIN = 10
 
-local INFO_X = 80
-local INFO_BOX = 14                 -- line box height of the identity block
-local INFO_GAP = 3                  -- breathing room between the lines
+local INFO_X = 82
+local INFO_BOX = 13                 -- line box height of the identity block
+local INFO_GAP = 2                  -- breathing room between the lines
 local INFO_TITLE = 13
+local INFO_LABEL_W = 64            -- fixed label column so every value shares one left edge
 local INFO_SIZE = 12
 
-local DISCORD_W = 110
-local DISCORD_H = 38
-local DISCORD_MARGIN = 12
+local DISCORD_W = 112
+local DISCORD_H = 42
+local DISCORD_MARGIN = 16        -- equals the vertical inset: (BAR_H - DISCORD_H) / 2
 
 local CONTENT_X = 16
 local CONTENT_TOP = NOTCH_R + 12    -- clears the recessed notch inside the card
@@ -204,13 +205,6 @@ local function Label(props)
 		props.TextXAlignment = Enum.TextXAlignment.Left
 	end
 	return New("TextLabel", props)
-end
-
-local function Field(label, value)
-	return string.format(
-		'<font color="#8C8C91">%s</font>  <font color="#FAFAFA">%s</font>',
-		label, tostring(value)
-	)
 end
 
 local function Opt(cfg, index, key, default)
@@ -1703,7 +1697,8 @@ function Library:CreateWindow(cfg)
 
 	local barY = OVERHANG + CARD_H + GAP
 	GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
-	local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Theme.Surface, 2)
+	local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Color3.new(1, 1, 1), 2)
+	New("UIGradient", { Color = ColorSequence.new(Theme.Surface, Theme.SurfaceDeep), Rotation = 90, Parent = bar })
 
 	-- Avatar medallion: gradient stroke → white ring → headshot
 	local avatarShell = New("Frame", {
@@ -1760,11 +1755,11 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- Identity block, exactly as framed: four lines, 13px pitch
+	-- Identity block: heading, then label / value rows on one shared grid
 	local info = New("Frame", {
 		Name = "Info",
 		Position = UDim2.fromOffset(INFO_X, 0),
-		Size = UDim2.new(1, -(INFO_X + (discord and (DISCORD_W + DISCORD_MARGIN + 8) or CONTENT_X)), 1, 0),
+		Size = UDim2.new(1, -(INFO_X + (discord and (DISCORD_W + DISCORD_MARGIN + 12) or CONTENT_X)), 1, 0),
 		BackgroundTransparency = 1,
 		ZIndex = 3,
 		Parent = bar,
@@ -1778,44 +1773,52 @@ function Library:CreateWindow(cfg)
 
 	local statusTitle = Label({
 		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Weight = "SemiBold",
+		Size = UDim2.new(1, 0, 0, INFO_BOX + 1),
+		Weight = "Bold",
 		Text = "USER STATUS",
 		TextSize = INFO_TITLE,
 		TextColor3 = Theme.Text,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = info,
 	})
-	local statusName = Label({
+	New("Frame", {
+		Name = "Spacer",
 		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = Field("Username:", cfg.Username or LocalPlayer.Name),
-		RichText = true,
-		TextSize = INFO_SIZE,
-		TextColor3 = Theme.TextSecondary,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundTransparency = 1,
 		Parent = info,
 	})
-	local statusId = Label({
-		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = Field("ID:", cfg.UserId or LocalPlayer.UserId),
-		RichText = true,
-		TextSize = INFO_SIZE,
-		TextColor3 = Theme.TextSecondary,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Parent = info,
-	})
-	local statusLine = Label({
-		LayoutOrder = 4,
-		Size = UDim2.new(1, 0, 0, INFO_BOX),
-		Text = Field("Status:", cfg.Status or "No-Key Script"),
-		RichText = true,
-		TextSize = INFO_SIZE,
-		TextColor3 = Theme.TextSecondary,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Parent = info,
-	})
+
+	local function InfoRow(order, name, value)
+		local row = New("Frame", {
+			Name = name,
+			LayoutOrder = order,
+			Size = UDim2.new(1, 0, 0, INFO_BOX),
+			BackgroundTransparency = 1,
+			Parent = info,
+		})
+		Label({
+			Size = UDim2.new(0, INFO_LABEL_W, 1, 0),
+			Weight = "Medium",
+			Text = name .. ":",
+			TextSize = INFO_SIZE,
+			TextColor3 = Theme.TextTertiary,
+			Parent = row,
+		})
+		return Label({
+			Position = UDim2.fromOffset(INFO_LABEL_W, 0),
+			Size = UDim2.new(1, -INFO_LABEL_W, 1, 0),
+			Text = tostring(value),
+			TextSize = INFO_SIZE,
+			TextColor3 = Theme.Text,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = row,
+		})
+	end
+
+	local statusName = InfoRow(3, "Username", cfg.Username or LocalPlayer.Name)
+	local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
+	local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
 
 	-- Discord pill ------------------------------------------------------------
 
@@ -1825,7 +1828,8 @@ function Library:CreateWindow(cfg)
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -DISCORD_MARGIN, 0.5, 0),
 			Size = UDim2.fromOffset(DISCORD_W, DISCORD_H),
-			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundColor3 = Color3.fromRGB(240, 240, 240),
+			AutoButtonColor = false,
 			Text = "discord",
 			FontFace = Typo.Medium,
 			TextSize = 13,
@@ -1834,18 +1838,18 @@ function Library:CreateWindow(cfg)
 			Parent = bar,
 		})
 		Round(button, DISCORD_H / 2)
-		local buttonGradient = New("UIGradient", {
+		New("UIGradient", {
 			Color = ColorSequence.new(Theme.Discord, Theme.DiscordEdge),
 			Rotation = 90,
 			Parent = button,
 		})
-		New("UIStroke", { Color = Theme.DiscordOutline, Thickness = 1, Parent = button })
+		New("UIStroke", { Color = Theme.DiscordOutline, Thickness = 1, Transparency = 0.55, Parent = button })
 
 		button.MouseEnter:Connect(function()
-			Tween(buttonGradient, 0.12, { Color = ColorSequence.new(Theme.Discord:Lerp(Color3.new(1, 1, 1), 0.12), Theme.Discord) })
+			Tween(button, 0.12, { BackgroundColor3 = Color3.new(1, 1, 1) })
 		end)
 		button.MouseLeave:Connect(function()
-			Tween(buttonGradient, 0.12, { Color = ColorSequence.new(Theme.Discord, Theme.DiscordEdge) })
+			Tween(button, 0.12, { BackgroundColor3 = Color3.fromRGB(240, 240, 240) })
 		end)
 		button.MouseButton1Down:Connect(function()
 			Tween(button, 0.06, { Size = UDim2.fromOffset(DISCORD_W - 3, DISCORD_H - 3) })
@@ -1960,13 +1964,13 @@ function Library:CreateWindow(cfg)
 	function window:SetStatus(statusCfg)
 		statusCfg = statusCfg or {}
 		if statusCfg.Username then
-			statusName.Text = Field("Username:", statusCfg.Username)
+			statusName.Text = tostring(statusCfg.Username)
 		end
 		if statusCfg.UserId then
-			statusId.Text = Field("ID:", statusCfg.UserId)
+			statusId.Text = tostring(statusCfg.UserId)
 		end
 		if statusCfg.Status then
-			statusLine.Text = Field("Status:", statusCfg.Status)
+			statusLine.Text = tostring(statusCfg.Status)
 		end
 		if statusCfg.Title then
 			statusTitle.Text = tostring(statusCfg.Title)
