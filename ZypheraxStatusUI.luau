@@ -1,15 +1,3 @@
---════════════════════════════════════════════════════════════════════════════
--- ZYPHERAX UI LIBRARY • v5 (final)
--- FIX v5: buildSilhouette kembali memakai gap MENGIKUTI BUSUR per baris
---         (lubang persegi panjang di v4 hilang); tangga sampling tertelan
---         band lip [RC, RC+LIP] → notch mulus DAN berbentuk benar.
---         Thumb tab strip diposisikan ulang setelah 1 frame render.
--- FIX v4: Guard inst:IsA("GuiObject") sebelum BorderSizePixel (ScreenGui aman).
--- FIX v3: Panel = slice sumbu-sejajar + arc antialiased; gradient stroke
---         di-parent ke UIStroke; ZIndexBehavior hanya di ScreenGui; lens dihapus.
--- Pemakaian: execute script → Library:CreateWindow(...) → AddTab → AddXxx.
---════════════════════════════════════════════════════════════════════════════
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -20,13 +8,18 @@ local LocalPlayer = Players.LocalPlayer
 
 local DEFAULT_LOGO = "rbxassetid://106764279090045"
 
--- Measured tokens ----------------------------------------------------------
+-- Measured tokens -------------------------------------------------------
 
 local Theme = {
+	-- Gradient used by every stroke in the interface (per-element, vertical).
+	-- Electric blue -> royal blue, sampled to sit next to the logo emblem.
+	-- NOTE: keep this a gradient. Replacing the shells below with a flat
+	-- UIStroke is exactly what makes the window look "roblox default".
 	StrokeTop = Color3.fromRGB(88, 166, 255),
 	StrokeMid = Color3.fromRGB(35, 136, 255),
 	StrokeBottom = Color3.fromRGB(27, 79, 216),
 
+	-- Surfaces, deep charcoal with a hint of tonal depth
 	Surface = Color3.fromRGB(41, 41, 46),
 	SurfaceDeep = Color3.fromRGB(36, 36, 41),
 	Raised = Color3.fromRGB(49, 49, 55),
@@ -35,15 +28,18 @@ local Theme = {
 	Inset = Color3.fromRGB(34, 34, 39),
 	Track = Color3.fromRGB(64, 64, 71),
 
+	-- Lines
 	Border = Color3.fromRGB(58, 57, 65),
 	BorderStrong = Color3.fromRGB(72, 71, 80),
 
+	-- Text hierarchy, sampled from the frame
 	Text = Color3.fromRGB(250, 250, 250),
 	TextSecondary = Color3.fromRGB(199, 199, 202),
 	TextTertiary = Color3.fromRGB(140, 140, 145),
 
+	-- Brand + semantics
 	Accent = Color3.fromRGB(64, 134, 214),
-	White = Color3.fromRGB(245, 245, 245),
+	White = Color3.fromRGB(245, 245, 245),     -- badge ring
 	Discord = Color3.fromRGB(87, 107, 230),
 	DiscordEdge = Color3.fromRGB(80, 98, 209),
 	DiscordOutline = Color3.fromRGB(48, 49, 65),
@@ -52,7 +48,7 @@ local Theme = {
 	Danger = Color3.fromRGB(224, 92, 92),
 }
 
--- Geometry ------------------------------------------------------------------
+-- Geometry, measured then rescaled by k = 1.129 --------------------------
 
 local WIDTH = 420
 local CARD_H = 301
@@ -62,19 +58,22 @@ local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
 local STROKE = 2
-local ROW = 2
+local ROW = 2                       -- silhouette slice height for the notch
 
-local BADGE_D = 124
-local NOTCH_R = 72
-local OVERHANG = BADGE_D / 2
+-- Logo disc + the transparent concave notch carved out of the panel top.
+-- The notch is a true negative-space cutout: no white disc, no filler.
+local BADGE_D = 124                 -- gradient-outlined logo disc diameter
+local NOTCH_R = 72                  -- radius of the recessed cutout
+local NOTCH_GAP = NOTCH_R - BADGE_D / 2   -- transparent breathing room (10px)
+local OVERHANG = BADGE_D / 2        -- logo centre sits on the panel top edge
 
 local AVATAR = 54
 local AVATAR_IMG = 38
 local AVATAR_MARGIN = 10
 
 local INFO_X = 80
-local INFO_BOX = 14
-local INFO_GAP = 2
+local INFO_BOX = 14                 -- line box height of the identity block
+local INFO_GAP = 2                  -- breathing room between the lines
 local INFO_TITLE = 13
 local INFO_SIZE = 12
 
@@ -83,7 +82,7 @@ local DISCORD_H = 38
 local DISCORD_MARGIN = 12
 
 local CONTENT_X = 16
-local CONTENT_TOP = NOTCH_R + 12
+local CONTENT_TOP = NOTCH_R + 12    -- clears the recessed notch inside the card
 local CONTENT_BOTTOM = 16
 
 local Library = {
@@ -92,7 +91,7 @@ local Library = {
 	Icons = { chevron = "", close = "", minimize = "", discord = "", check = "" },
 }
 
--- Small utilities -----------------------------------------------------------
+-- Small utilities --------------------------------------------------------
 
 local function New(class, props)
 	local inst = Instance.new(class)
@@ -101,10 +100,12 @@ local function New(class, props)
 	for key, value in pairs(props) do
 		inst[key] = value
 	end
-	-- BorderSizePixel HANYA valid di GuiObject. ScreenGui (LayerCollector) serta
-	-- UIScale/UICorner/UIStroke/UIGradient/UIListLayout/UIPadding tidak memilikinya.
-	if inst:IsA("GuiObject") then
-		inst.BorderSizePixel = 0
+	if class == "Frame" or class == "TextLabel" or class == "TextButton"
+		or class == "ImageLabel" or class == "ImageButton" or class == "ScrollingFrame"
+		or class == "TextBox" or class == "CanvasGroup" then
+		if inst.BorderSizePixel ~= nil then
+			inst.BorderSizePixel = 0
+		end
 	end
 	inst.Parent = parent
 	return inst
@@ -124,6 +125,10 @@ local function Tween(obj, duration, props, style, direction)
 	return tween
 end
 
+-- The signature look: a 2px stroke that falls from azure to deep navy.
+-- Implemented as a slightly larger gradient shell with the fill inset on top,
+-- because UIStroke cannot take a gradient. If UIGradient ever fails on an
+-- executor, the shell falls back to the flat top colour instead of white.
 local function GradientShell(parent, name, position, size, radius, colors, zIndex)
 	colors = colors or Theme
 	local top = colors.top or Theme.StrokeTop
@@ -248,7 +253,7 @@ local function ViewportScale()
 	return math.clamp(math.min(viewport.X / (WIDTH + 120), viewport.Y / (TOTAL_H + OVERHANG + 120)), 0.55, 1.15)
 end
 
--- Drawn glyphs ---------------------------------------------------------------
+-- Drawn glyphs: crisp at any size, tintable, zero assets ------------------
 
 local function Glyph(parent, name, color, size)
 	local holder = New("Frame", {
@@ -317,7 +322,7 @@ local function Glyph(parent, name, color, size)
 	return holder, paint
 end
 
--- Dragging --------------------------------------------------------------------
+-- Dragging ----------------------------------------------------------------
 
 local function MakeDraggable(handle, target, uiScale)
 	local state = { Moved = false }
@@ -359,7 +364,7 @@ local function MakeDraggable(handle, target, uiScale)
 	return state
 end
 
--- Notifications ---------------------------------------------------------------
+-- Notifications -----------------------------------------------------------
 
 local notifyGui, notifyOrder = nil, 0
 
@@ -429,14 +434,14 @@ function Library:Notify(cfg)
 	})
 	Round(toast, 8)
 
-	local stripe = New("Frame", {
+	New("Frame", {
 		Name = "Stripe",
 		Position = UDim2.fromOffset(0, 6),
 		Size = UDim2.new(0, 3, 1, -12),
 		BackgroundColor3 = accent,
 		Parent = toast,
 	})
-	Round(stripe, 2)
+	Round(toast.Stripe, 2)
 
 	local body = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
@@ -520,7 +525,7 @@ function Library:SetNotification(cfg)
 	})
 end
 
--- Row controls ----------------------------------------------------------------
+-- Row controls ------------------------------------------------------------
 
 local function BuildItems(page, accents)
 	local items, order = {}, 0
@@ -889,7 +894,9 @@ local function BuildItems(page, accents)
 		local callback = cfg.Callback or function() end
 
 		local open = false
-		local row = Row(38)
+		local current = default
+		local rowHeight = 38
+		local row = Row(rowHeight)
 
 		Label({
 			AnchorPoint = Vector2.new(0, 0.5),
@@ -906,7 +913,7 @@ local function BuildItems(page, accents)
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -34, 0.5, 0),
 			Size = UDim2.new(0.5, -40, 0, 16),
-			Text = tostring(default or "—"),
+			Text = tostring(current or "—"),
 			TextSize = 12,
 			TextColor3 = Theme.TextSecondary,
 			TextXAlignment = Enum.TextXAlignment.Right,
@@ -944,7 +951,7 @@ local function BuildItems(page, accents)
 			Parent = scroll,
 		})
 
-		local obj = { Value = default }
+		local obj = { Value = current }
 
 		local function setOpen(state)
 			open = state
@@ -1012,6 +1019,7 @@ local function BuildItems(page, accents)
 
 		function obj:Set(value, silent)
 			obj.Value = value
+			current = value
 			chosen.Text = tostring(value or "—")
 			rebuild()
 			if not silent then
@@ -1030,6 +1038,9 @@ local function BuildItems(page, accents)
 		end)
 
 		rebuild()
+		if default ~= nil then
+			chosen.Text = tostring(default)
+		end
 		return obj
 	end
 
@@ -1399,7 +1410,7 @@ local function BuildItems(page, accents)
 			PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12),
 			Parent = wrap,
 		})
-		New("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = wrap })
+		local layout = New("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = wrap })
 		if title and title ~= "" then
 			Label({
 				LayoutOrder = 1,
@@ -1423,13 +1434,14 @@ local function BuildItems(page, accents)
 			TextWrapped = true,
 			Parent = wrap,
 		})
+		layout.Padding = UDim.new(0, 4)
 		return wrap
 	end
 
 	return items
 end
 
--- Window -----------------------------------------------------------------------
+-- Window -------------------------------------------------------------------
 
 function Library:CreateWindow(cfg)
 	cfg = cfg or {}
@@ -1440,6 +1452,7 @@ function Library:CreateWindow(cfg)
 		logo = DEFAULT_LOGO
 	end
 
+	-- Per-window accent: the measured brand gradient, or a tinted variant.
 	local accents = { top = Theme.StrokeTop, mid = Theme.StrokeMid, bottom = Theme.StrokeBottom }
 	if cfg.Color and typeof(cfg.Color) == "Color3" then
 		local deep = Color3.fromRGB(8, 20, 48)
@@ -1476,26 +1489,27 @@ function Library:CreateWindow(cfg)
 	})
 	local uiScale = New("UIScale", { Parent = root })
 
-	-- Panel: slice sumbu-sejajar + arc antialiased ---------------------------
-	-- RC = radius arc outline, RF = radius kolom fill, RB = outer lip.
-	-- Gap dihitung MENGIKUTI BUSUR per baris (bentuk benar); deviasi sampling
-	-- (≤ +ROW ke arah luar) jatuh di dalam band lip [RC, RC+LIP] → tertelan.
-	local S = STROKE
-	local RC = NOTCH_R + S
-	local RF = RC + S
-	local LIP = 5
-	local RB = RC + LIP
+	-- Main panel with a true transparent notch ----------------------------
+	-- The panel is sliced into 2px horizontal rows. Every row pair skirts the
+	-- notch circle, so the top edge genuinely curves AROUND the logo and the
+	-- cutout stays negative space (the 3D scene shows through). The gradient
+	-- outline is a second silhouette, 2px larger, drawn underneath; the fill
+	-- silhouette on top leaves a perfect 2px band that follows every curve,
+	-- including the recessed arc. No white disc, no filler, no seam.
 
-	local outerH = CARD_H + S * 2
+	local function cornerInset(d, r)
+		if d >= r then
+			return 0
+		end
+		return r - math.sqrt(r * r - (r - d) * (r - d))
+	end
+
 	local function gradAt(t)
 		t = math.clamp(t, 0, 1)
 		if t < 0.5 then
 			return accents.top:Lerp(accents.mid, t * 2)
 		end
 		return accents.mid:Lerp(accents.bottom, (t - 0.5) * 2)
-	end
-	local function gY(py)
-		return gradAt((py + S) / outerH)
 	end
 
 	local panel = New("Frame", {
@@ -1505,195 +1519,224 @@ function Library:CreateWindow(cfg)
 		BackgroundTransparency = 1,
 		Parent = root,
 	})
+
 	local cx = WIDTH / 2
+	local outerH = CARD_H + STROKE * 2
+	local holeR = NOTCH_R - STROKE
 
-	local function buildSilhouette(isOutline)
-		local rad = isOutline and RC or RF
-		local y0 = isOutline and -S or 0
-		for y = y0, CARD_H - 1, ROW do
-			local inCorner = (y < R_CARD) or (y >= CARD_H - R_CARD)
-			local l = inCorner and R_CARD or (isOutline and -S or 0)
-			local r = inCorner and (WIDTH - R_CARD) or (isOutline and (WIDTH + S) or WIDTH)
-
-			local gap = 0
-			if y < rad then
-				gap = math.sqrt(math.max(rad * rad - y * y, 0))
-			end
-
-			local spans = {}
-			if gap > 1 and (cx - gap) > l and (cx + gap) < r then
-				table.insert(spans, { l, cx - gap })
-				table.insert(spans, { cx + gap, r })
-			elseif gap > 1 and (cx - gap) > l then
-				table.insert(spans, { l, cx - gap })
-			else
-				table.insert(spans, { l, r })
-			end
-
-			local color
-			if isOutline then
-				color = gY(y)
-			else
-				color = Theme.Surface:Lerp(Theme.SurfaceDeep, math.clamp((y - RB) / (CARD_H - RB), 0, 1))
-			end
-
-			for _, sp in ipairs(spans) do
-				New("Frame", {
-					BackgroundColor3 = color,
-					Position = UDim2.fromOffset(sp[1], y),
-					Size = UDim2.fromOffset(sp[2] - sp[1], ROW),
-					ZIndex = isOutline and 1 or 2,
-					Parent = panel,
-				})
-			end
+	-- outline silhouette (underneath). Rows are sampled "inside-safe": a row
+	-- never paints outside the true curve, so no teeth stick into transparent
+	-- space. The smooth circle patches below repaint every curved zone with
+	-- renderer-antialiased geometry, hiding the slice steps completely.
+	for y = -STROKE, CARD_H + STROKE - 1, ROW do
+		local yo = y + STROKE
+		local yb = outerH - yo - ROW
+		local inset = math.max(cornerInset(yo, R_CARD + STROKE), cornerInset(math.max(yb, 0), R_CARD + STROKE))
+		local ol, orr = -STROKE + inset, WIDTH + STROKE - inset
+		local gap = 0
+		if y < holeR then
+			gap = math.sqrt(math.max(holeR * holeR - y * y, 0))
 		end
-	end
-	buildSilhouette(true)
-	buildSilhouette(false)
-
-	-- corner patches: quarter-disc fill + quarter-ring stroke (gradient di stroke)
-	for _, c in ipairs({
-		{ left = true,  top = true,  cx = R_CARD,         cy = R_CARD },
-		{ left = false, top = true,  cx = WIDTH - R_CARD, cy = R_CARD },
-		{ left = true,  top = false, cx = R_CARD,         cy = CARD_H - R_CARD },
-		{ left = false, top = false, cx = WIDTH - R_CARD, cy = CARD_H - R_CARD },
-	}) do
-		local orad = R_CARD + S
-
-		local clipX = c.left and (c.cx - orad - 1) or c.cx
-		local clipY = c.top and (c.cy - orad - 1) or c.cy
-		local outClip = New("Frame", {
-			Position = UDim2.fromOffset(clipX, clipY),
-			Size = UDim2.fromOffset(orad + 1, orad + 1),
-			BackgroundTransparency = 1,
-			ClipsDescendants = true,
+		local color = gradAt((y + STROKE) / outerH)
+		local props = {
+			BackgroundColor3 = color,
+			Position = UDim2.fromOffset(ol, y),
 			ZIndex = 1,
 			Parent = panel,
+		}
+		if gap <= 1 or cx - gap <= ol + 1 then
+			props.Size = UDim2.fromOffset(orr - ol, ROW)
+			New("Frame", props)
+		else
+			props.Size = UDim2.fromOffset((cx - gap) - ol, ROW)
+			New("Frame", props)
+			local props2 = {
+				BackgroundColor3 = color,
+				Position = UDim2.fromOffset(cx + gap, y),
+				Size = UDim2.fromOffset(orr - (cx + gap), ROW),
+				ZIndex = 1,
+				Parent = panel,
+			}
+			New("Frame", props2)
+		end
+	end
+
+	-- fill silhouette (on top), inset by the stroke width, inside-safe
+	for y = 0, CARD_H - 1, ROW do
+		local inset = math.max(cornerInset(y, R_CARD), cornerInset(math.max(CARD_H - y - ROW, 0), R_CARD))
+		local il, ir = inset, WIDTH - inset
+		local gap = 0
+		if y < NOTCH_R then
+			gap = math.sqrt(math.max(NOTCH_R * NOTCH_R - y * y, 0))
+		end
+		local color = Theme.Surface:Lerp(Theme.SurfaceDeep, y / CARD_H)
+		local props = {
+			BackgroundColor3 = color,
+			Position = UDim2.fromOffset(il, y),
+			ZIndex = 2,
+			Parent = panel,
+		}
+		if gap <= 1 or cx - gap <= il + 1 then
+			props.Size = UDim2.fromOffset(ir - il, ROW)
+			New("Frame", props)
+		else
+			props.Size = UDim2.fromOffset((cx - gap) - il, ROW)
+			New("Frame", props)
+			local props2 = {
+				BackgroundColor3 = color,
+				Position = UDim2.fromOffset(cx + gap, y),
+				Size = UDim2.fromOffset(ir - (cx + gap), ROW),
+				ZIndex = 2,
+				Parent = panel,
+			}
+			New("Frame", props2)
+		end
+	end
+
+	-- Smooth curve patches --------------------------------------------------
+	-- Real circle geometry (renderer-antialiased) layered over every sliced
+	-- zone: the notch outline ring, the notch fill band and the four corner
+	-- quadrants. These repaint the curved boundaries with true arcs, so no
+	-- slice step can ever show ("bergerigi" eliminated).
+
+	local function clipFrame(name, x, y, w, h, z)
+		return New("Frame", {
+			Name = name,
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(w, h),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = z,
+			Parent = panel,
 		})
+	end
+
+	-- notch outline ring: radial band [NOTCH_R-STROKE, NOTCH_R]
+	local noClip = clipFrame("NotchOutlineClip", cx - NOTCH_R - 4, 0, (NOTCH_R + 4) * 2, NOTCH_R + 4, 1)
+	local noRing = New("Frame", {
+		Position = UDim2.fromOffset(cx - NOTCH_R, -NOTCH_R),
+		Size = UDim2.fromOffset(NOTCH_R * 2, NOTCH_R * 2),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = noClip,
+	})
+	Round(noRing, NOTCH_R)
+	New("UIStroke", {
+		Color = Color3.new(1, 1, 1),
+		Thickness = STROKE,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = noRing,
+	})
+	New("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, gradAt(STROKE / outerH)),
+			ColorSequenceKeypoint.new(0.5, gradAt(STROKE / outerH)),
+			ColorSequenceKeypoint.new(1, gradAt((NOTCH_R + STROKE) / outerH)),
+		}),
+		Rotation = 90,
+		Parent = noRing,
+	})
+
+	-- notch fill band: radial band [NOTCH_R, NOTCH_R+3], flat surface tone
+	local nfClip = clipFrame("NotchFillClip", cx - NOTCH_R - 5, 0, (NOTCH_R + 5) * 2, NOTCH_R + 5, 2)
+	local nfRing = New("Frame", {
+		Position = UDim2.fromOffset(cx - NOTCH_R - 3, -NOTCH_R - 3),
+		Size = UDim2.fromOffset((NOTCH_R + 3) * 2, (NOTCH_R + 3) * 2),
+		BackgroundTransparency = 1,
+		ZIndex = 2,
+		Parent = nfClip,
+	})
+	Round(nfRing, NOTCH_R + 3)
+	New("UIStroke", {
+		Color = Theme.Surface,
+		Thickness = 3,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = nfRing,
+	})
+
+	-- four corner quadrants: fill quarter-disc + outline quarter-ring
+	local cornerDefs = {
+		{ cx = R_CARD, cy = R_CARD, top = true },
+		{ cx = WIDTH - R_CARD, cy = R_CARD, top = true },
+		{ cx = R_CARD, cy = CARD_H - R_CARD, top = false },
+		{ cx = WIDTH - R_CARD, cy = CARD_H - R_CARD, top = false },
+	}
+	for _, cdef in ipairs(cornerDefs) do
+		local qx = cdef.cx < cx and 0 or WIDTH - R_CARD
+		local qy = cdef.top and 0 or CARD_H - R_CARD
+
+		local fillClip = clipFrame("CornerFillClip", qx, qy, R_CARD, R_CARD, 2)
+		local disc = New("Frame", {
+			Position = UDim2.fromOffset(cdef.cx - R_CARD, cdef.cy - R_CARD),
+			Size = UDim2.fromOffset(R_CARD * 2, R_CARD * 2),
+			BackgroundColor3 = cdef.top and Theme.Surface or Theme.SurfaceDeep,
+			ZIndex = 2,
+			Parent = fillClip,
+		})
+		Round(disc, R_CARD)
+
+		local orad = R_CARD + STROKE
+		local outClip = clipFrame("CornerOutlineClip", cdef.cx - orad, cdef.cy - orad, orad, orad, 1)
 		local ring = New("Frame", {
-			Position = UDim2.fromOffset(c.cx - orad, c.cy - orad),
+			Position = UDim2.fromOffset(cdef.cx - orad, cdef.cy - orad),
 			Size = UDim2.fromOffset(orad * 2, orad * 2),
 			BackgroundTransparency = 1,
 			ZIndex = 1,
 			Parent = outClip,
 		})
 		Round(ring, orad)
-		local ringStroke = New("UIStroke", {
+		New("UIStroke", {
 			Color = Color3.new(1, 1, 1),
-			Thickness = S,
+			Thickness = STROKE,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			Parent = ring,
 		})
-		local kA, kB, kp
-		if c.top then
-			kA, kB = gY(c.cy - orad), gY(c.cy)
-			kp = {
-				ColorSequenceKeypoint.new(0, kA),
-				ColorSequenceKeypoint.new(0.5, kB),
-				ColorSequenceKeypoint.new(1, kB),
-			}
+		local cAt, cMid, cBot
+		if cdef.top then
+			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
+			cMid = gradAt((cdef.cy + STROKE) / outerH)
+			cBot = cMid
 		else
-			kA, kB = gY(c.cy), gY(c.cy + orad)
-			kp = {
-				ColorSequenceKeypoint.new(0, kA),
-				ColorSequenceKeypoint.new(0.5, kA),
-				ColorSequenceKeypoint.new(1, kB),
-			}
+			cAt = gradAt((cdef.cy - orad + STROKE) / outerH)
+			cMid = gradAt((cdef.cy + STROKE) / outerH)
+			cBot = gradAt(1)
 		end
 		New("UIGradient", {
-			Color = ColorSequence.new(kp),
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, cAt),
+				ColorSequenceKeypoint.new(0.5, cMid),
+				ColorSequenceKeypoint.new(1, cBot),
+			}),
 			Rotation = 90,
-			Parent = ringStroke,   -- ✅ parent = UIStroke
+			Parent = ring,
 		})
-
-		local clipX2 = c.left and (c.cx - R_CARD - 1) or c.cx
-		local clipY2 = c.top and (c.cy - R_CARD - 1) or c.cy
-		local fillClip = New("Frame", {
-			Position = UDim2.fromOffset(clipX2, clipY2),
-			Size = UDim2.fromOffset(R_CARD + 1, R_CARD + 1),
-			BackgroundTransparency = 1,
-			ClipsDescendants = true,
-			ZIndex = 2,
-			Parent = panel,
-		})
-		local disc = New("Frame", {
-			Position = UDim2.fromOffset(c.cx - R_CARD, c.cy - R_CARD),
-			Size = UDim2.fromOffset(R_CARD * 2, R_CARD * 2),
-			BackgroundColor3 = c.top and Theme.Surface or Theme.SurfaceDeep,
-			ZIndex = 2,
-			Parent = fillClip,
-		})
-		Round(disc, R_CARD)
 	end
 
-	-- notch arcs: lip surface (menelan tangga) + arc gradient (rim mulus)
-	local notchClip = New("Frame", {
-		Position = UDim2.fromOffset(cx - RB - 2, 0),
-		Size = UDim2.fromOffset((RB + 2) * 2, RB + 2),
-		BackgroundTransparency = 1,
-		ClipsDescendants = true,
-		ZIndex = 3,
-		Parent = panel,
-	})
-	local lip = New("Frame", {
-		Position = UDim2.fromOffset(cx - RB, -RB),
-		Size = UDim2.fromOffset(RB * 2, RB * 2),
-		BackgroundTransparency = 1,
-		ZIndex = 1,
-		Parent = notchClip,
-	})
-	Round(lip, RB)
-	New("UIStroke", {
-		Color = Theme.Surface,
-		Thickness = LIP,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = lip,
-	})
-	local arc = New("Frame", {
-		Position = UDim2.fromOffset(cx - RC, -RC),
-		Size = UDim2.fromOffset(RC * 2, RC * 2),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-		Parent = notchClip,
-	})
-	Round(arc, RC)
-	local arcStroke = New("UIStroke", {
-		Color = Color3.new(1, 1, 1),
-		Thickness = S,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = arc,
-	})
-	New("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, gY(0)),
-			ColorSequenceKeypoint.new(0.5, gY(0)),
-			ColorSequenceKeypoint.new(1, gY(RC)),
-		}),
-		Rotation = 90,
-		Parent = arcStroke,        -- ✅ parent = UIStroke
-	})
-
-	-- invisible drag surface
+	-- invisible drag surface over the panel (content sits above it)
 	local dragFrame = New("Frame", {
 		Name = "Drag",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		ZIndex = 4,
+		ZIndex = 3,
 		Parent = panel,
 	})
 
-	-- Content
+	-- Content area ----------------------------------------------------------
+
 	local content = New("Frame", {
 		Name = "Content",
 		Position = UDim2.fromOffset(CONTENT_X, CONTENT_TOP),
 		Size = UDim2.new(1, -CONTENT_X * 2, 1, -(CONTENT_TOP + CONTENT_BOTTOM)),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
-		ZIndex = 5,
+		ZIndex = 4,
 		Parent = panel,
 	})
 
-	-- Badge disc
+	-- Logo disc, centred exactly on the panel's top edge -------------------
+	-- Gradient-outlined charcoal disc. The recessed panel edge keeps a
+	-- consistent transparent gap (NOTCH_GAP) around it.
+
 	local badgeShell = New("Frame", {
 		Name = "Badge",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1713,6 +1756,7 @@ function Library:CreateWindow(cfg)
 		Rotation = 90,
 		Parent = badgeShell,
 	})
+
 	local badgeCore = New("Frame", {
 		Name = "Core",
 		Position = UDim2.fromOffset(STROKE, STROKE),
@@ -1723,6 +1767,10 @@ function Library:CreateWindow(cfg)
 	})
 	Round(badgeCore, BADGE_D / 2 - STROKE)
 
+	-- Logo image. Default fills the whole core: the uploaded asset ships with
+	-- its own navy disc, and filling the core hides the disc seam so the badge
+	-- reads as one curved medallion. Pass cfg.LogoSize (px) if your logo is a
+	-- transparent glyph instead.
 	local logoSize = cfg.LogoSize or 0
 	New("ImageLabel", {
 		Name = "Logo",
@@ -1736,11 +1784,53 @@ function Library:CreateWindow(cfg)
 		Parent = badgeCore,
 	})
 
-	-- Status bar
+	-- White lens glow in the gap. Built from five stacked pills so the shape
+	-- reads as a soft CURVED glow (ellipse-ish both ways), never as a line:
+	-- widths taper vertically, alpha fades horizontally on every band.
+	local lensBands = {
+		{ w = 196, h = 3, a = 0.22 },
+		{ w = 258, h = 3, a = 0.50 },
+		{ w = 290, h = 4, a = 0.95 },
+		{ w = 258, h = 3, a = 0.50 },
+		{ w = 196, h = 3, a = 0.22 },
+	}
+	local lensY = OVERHANG + CARD_H + GAP / 2
+	local lensTop = lensY - 8
+	for index, band in ipairs(lensBands) do
+		local offset = 0
+		for i = 1, index - 1 do
+			offset += lensBands[i].h
+		end
+		local piece = New("Frame", {
+			Name = "Lens" .. index,
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, lensTop + offset),
+			Size = UDim2.fromOffset(band.w, band.h),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 1 - band.a,
+			ZIndex = 0,
+			Parent = root,
+		})
+		Round(piece, band.h / 2)
+		New("UIGradient", {
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.16, 0.25),
+				NumberSequenceKeypoint.new(0.5, 0),
+				NumberSequenceKeypoint.new(0.84, 0.25),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Parent = piece,
+		})
+	end
+
+	-- Status bar -------------------------------------------------------------
+
 	local barY = OVERHANG + CARD_H + GAP
 	GradientShell(root, "Bar", UDim2.fromOffset(0, barY), UDim2.fromOffset(WIDTH, BAR_H), BAR_H / 2, accents, 1)
 	local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Theme.Surface, 2)
 
+	-- Avatar medallion: gradient stroke → white ring → headshot
 	local avatarShell = New("Frame", {
 		Name = "Avatar",
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -1795,6 +1885,7 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
+	-- Identity block, exactly as framed: four lines, 13px pitch
 	local info = New("Frame", {
 		Name = "Info",
 		Position = UDim2.fromOffset(INFO_X, 0),
@@ -1848,6 +1939,8 @@ function Library:CreateWindow(cfg)
 		Parent = info,
 	})
 
+	-- Discord pill ------------------------------------------------------------
+
 	if discord then
 		local button = New("TextButton", {
 			Name = "Discord",
@@ -1889,15 +1982,20 @@ function Library:CreateWindow(cfg)
 			else
 				Library:Notify({ Title = "Discord", Content = discord, Color = accents.fill })
 			end
+			if typeof(request) == "function" and cfg.OpenDiscord then
+				pcall(request, { Url = discord, Method = "GET" })
+			end
 		end)
 	end
 
-	-- Dragging
+	-- Dragging -----------------------------------------------------------------
+
 	MakeDraggable(dragFrame, root, uiScale)
 	MakeDraggable(bar, root, uiScale)
 	MakeDraggable(badgeShell, root, uiScale)
 
-	-- Launcher
+	-- Launcher ------------------------------------------------------------------
+
 	local launcher = New("ImageButton", {
 		Name = "Launcher",
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -1952,7 +2050,8 @@ function Library:CreateWindow(cfg)
 		Tween(launcherScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quint)
 	end)
 
-	-- Visibility and scaling
+	-- Visibility and scaling -------------------------------------------------------
+
 	local baseScale, visible = ViewportScale(), false
 
 	function window:SetVisible(show)
@@ -2014,7 +2113,8 @@ function Library:CreateWindow(cfg)
 		end
 	end))
 
-	-- Tabs
+	-- Tabs ------------------------------------------------------------------------
+
 	local tabs = {}
 	local tabStrip, tabThumb, pagesHolder
 
@@ -2038,13 +2138,13 @@ function Library:CreateWindow(cfg)
 		Round(tabThumb, 6)
 		New("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, accents.top),
-				ColorSequenceKeypoint.new(1, accents.mid),
-			}),
+			ColorSequenceKeypoint.new(0, accents.top),
+			ColorSequenceKeypoint.new(1, accents.mid),
+		}),
 			Rotation = 0,
 			Parent = tabThumb,
 		})
-		New("UIListLayout", {
+		local layout = New("UIListLayout", {
 			Padding = UDim.new(0, 3),
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -2099,6 +2199,7 @@ function Library:CreateWindow(cfg)
 
 		local holder = content
 		if not tabStrip and #tabs >= 1 then
+			-- A second tab appears: promote existing pages under a tab strip.
 			buildTabStrip()
 			for _, existing in ipairs(tabs) do
 				existing.Page.Parent = pagesHolder
@@ -2121,7 +2222,7 @@ function Library:CreateWindow(cfg)
 			Visible = false,
 			Parent = holder,
 		})
-		New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
+		New("UIListLayout", { Padding = UDim2.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
 		New("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = page })
 
 		local tab = { Page = page, Active = false, Name = name }
@@ -2131,6 +2232,7 @@ function Library:CreateWindow(cfg)
 			local button = New("TextButton", {
 				Size = UDim2.new(0, math.max(56, string.len(name) * 7 + 22), 1, -6),
 				LayoutOrder = #tabs,
+				BackgroundColor3 = Color3.new(1, 1, 1),
 				BackgroundTransparency = 1,
 				Text = "",
 				AutoButtonColor = false,
@@ -2155,9 +2257,8 @@ function Library:CreateWindow(cfg)
 		end
 
 		selectTab(tab)
-		task.spawn(function()
-			task.wait()          -- satu frame render → AbsolutePosition valid
-			selectTab(tab)       -- thumb diposisikan ulang dengan akurat
+		task.defer(function()
+			selectTab(tab) -- re-position the thumb once absolutes are valid
 		end)
 
 		return BuildItems(page, accents)
