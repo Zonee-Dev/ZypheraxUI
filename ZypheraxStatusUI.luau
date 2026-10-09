@@ -1,11 +1,13 @@
 --════════════════════════════════════════════════════════════════════════════
--- ZYPHERAX UI LIBRARY • v4 (final fix)
--- FIX v4: New() memakai guard inst:IsA("GuiObject") sebelum set BorderSizePixel.
---         (Membaca BorderSizePixel pada ScreenGui/non-GuiObject = error runtime.)
--- FIX v3: Panel notch & sudut = primitive antialiased (slice hanya sumbu-sejajar).
---         Semua gradient stroke di-parent ke UIStroke (bukan Frame).
---         ZIndexBehavior hanya di ScreenGui. Lens glow dihapus.
--- Pemakaian: lihat execute/test script (CreateWindow → AddTab → AddXxx).
+-- ZYPHERAX UI LIBRARY • v5 (final)
+-- FIX v5: buildSilhouette kembali memakai gap MENGIKUTI BUSUR per baris
+--         (lubang persegi panjang di v4 hilang); tangga sampling tertelan
+--         band lip [RC, RC+LIP] → notch mulus DAN berbentuk benar.
+--         Thumb tab strip diposisikan ulang setelah 1 frame render.
+-- FIX v4: Guard inst:IsA("GuiObject") sebelum BorderSizePixel (ScreenGui aman).
+-- FIX v3: Panel = slice sumbu-sejajar + arc antialiased; gradient stroke
+--         di-parent ke UIStroke; ZIndexBehavior hanya di ScreenGui; lens dihapus.
+-- Pemakaian: execute script → Library:CreateWindow(...) → AddTab → AddXxx.
 --════════════════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -101,7 +103,6 @@ local function New(class, props)
 	end
 	-- BorderSizePixel HANYA valid di GuiObject. ScreenGui (LayerCollector) serta
 	-- UIScale/UICorner/UIStroke/UIGradient/UIListLayout/UIPadding tidak memilikinya.
-	-- Guard pakai IsA — JANGAN membaca propertinya langsung (error runtime).
 	if inst:IsA("GuiObject") then
 		inst.BorderSizePixel = 0
 	end
@@ -1461,7 +1462,7 @@ function Library:CreateWindow(cfg)
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		DisplayOrder = 100,
-		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,   -- ✅ properti ScreenGui
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = parent,
 	})
 
@@ -1475,7 +1476,10 @@ function Library:CreateWindow(cfg)
 	})
 	local uiScale = New("UIScale", { Parent = root })
 
-	-- Panel: straight-axis slices + antialiased arcs (zero gerigi) -----------
+	-- Panel: slice sumbu-sejajar + arc antialiased ---------------------------
+	-- RC = radius arc outline, RF = radius kolom fill, RB = outer lip.
+	-- Gap dihitung MENGIKUTI BUSUR per baris (bentuk benar); deviasi sampling
+	-- (≤ +ROW ke arah luar) jatuh di dalam band lip [RC, RC+LIP] → tertelan.
 	local S = STROKE
 	local RC = NOTCH_R + S
 	local RF = RC + S
@@ -1504,17 +1508,24 @@ function Library:CreateWindow(cfg)
 	local cx = WIDTH / 2
 
 	local function buildSilhouette(isOutline)
-		local cut = isOutline and RC or RF
+		local rad = isOutline and RC or RF
 		local y0 = isOutline and -S or 0
 		for y = y0, CARD_H - 1, ROW do
 			local inCorner = (y < R_CARD) or (y >= CARD_H - R_CARD)
 			local l = inCorner and R_CARD or (isOutline and -S or 0)
 			local r = inCorner and (WIDTH - R_CARD) or (isOutline and (WIDTH + S) or WIDTH)
 
+			local gap = 0
+			if y < rad then
+				gap = math.sqrt(math.max(rad * rad - y * y, 0))
+			end
+
 			local spans = {}
-			if y < RB then
-				if l < cx - cut then table.insert(spans, { l, cx - cut }) end
-				if cx + cut < r then table.insert(spans, { cx + cut, r }) end
+			if gap > 1 and (cx - gap) > l and (cx + gap) < r then
+				table.insert(spans, { l, cx - gap })
+				table.insert(spans, { cx + gap, r })
+			elseif gap > 1 and (cx - gap) > l then
+				table.insert(spans, { l, cx - gap })
 			else
 				table.insert(spans, { l, r })
 			end
@@ -1615,7 +1626,7 @@ function Library:CreateWindow(cfg)
 		Round(disc, R_CARD)
 	end
 
-	-- notch arcs: lip surface + arc gradient (menelan semua deviasi kolom)
+	-- notch arcs: lip surface (menelan tangga) + arc gradient (rim mulus)
 	local notchClip = New("Frame", {
 		Position = UDim2.fromOffset(cx - RB - 2, 0),
 		Size = UDim2.fromOffset((RB + 2) * 2, RB + 2),
@@ -2144,8 +2155,9 @@ function Library:CreateWindow(cfg)
 		end
 
 		selectTab(tab)
-		task.defer(function()
-			selectTab(tab)
+		task.spawn(function()
+			task.wait()          -- satu frame render → AbsolutePosition valid
+			selectTab(tab)       -- thumb diposisikan ulang dengan akurat
 		end)
 
 		return BuildItems(page, accents)
