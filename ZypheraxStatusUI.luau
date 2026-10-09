@@ -2418,8 +2418,6 @@ function Library:CreateWindow(cfg)
     end))
 
     -- Tabs ----------------------------------------------------------------
-    -- Strip pill (shell+inner), thumb pill gradasi, scrollbar pill kecil
-    -- di BAWAH strip yang selalu menempel di tab terpilih & ikut scroll.
 
     local tabs = {}
     local selectedTab
@@ -2427,13 +2425,22 @@ function Library:CreateWindow(cfg)
 
     local STRIP_H = 30
     local STRIP_OUT = 2          -- outline kiri/kanan
-    local STRIP_OUT_V = 3        -- outline atas/bawah (lebih tebal dikit)
+    local STRIP_OUT_V = 4        -- ⬆️ outline atas/bawah dipertebal 3 → 4
     local SCROLL_INSET = 2
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local IND_H = 3              -- tinggi scrollbar pill
-    local IND_Y = STRIP_H + 3    -- posisi di bawah strip
+    local IND_H = 2              -- ⬇️ tinggi indicator diperkecil 3 → 2
+    local IND_W_RATIO = 0.58     -- ⬇️ lebar indicator = 58% dari tab (lebih compact)
+    local IND_Y = STRIP_H + 3
+
+    -- Warna base thumb: gunakan ujung gelap gradient supaya aliasing UICorner
+    -- tidak menampilkan garis putih terang.
+    local THUMB_BASE = accents.bottom:Lerp(accents.mid, 0.35)
+
+    local function indicatorWidth()
+        return math.floor(TAB_W * IND_W_RATIO)
+    end
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
@@ -2445,11 +2452,14 @@ function Library:CreateWindow(cfg)
         end
         local idx = (selectedTab.Order or 1) - 1
         local trackX = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        -- center indicator di dalam lebar tab
+        local indW = indicatorWidth()
+        local centeredX = trackX + (TAB_W - indW) / 2
         local canvasX = tabScroll.CanvasPosition.X
         local viewportW = tabScroll.AbsoluteSize.X
-        local viewX = trackX - canvasX
-        local visible = (viewX + TAB_W > 0) and (viewX < viewportW)
-        viewX = math.clamp(viewX, 0, math.max(viewportW - TAB_W, 0))
+        local viewX = centeredX - canvasX
+        local visible = (viewX + indW > 0) and (viewX < viewportW)
+        viewX = math.clamp(viewX, 0, math.max(viewportW - indW, 0))
         tabIndicator.Visible = visible
         local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + viewX, IND_Y)
         if animate then
@@ -2538,11 +2548,12 @@ function Library:CreateWindow(cfg)
             Parent = tabScroll,
         })
 
+        -- Thumb pill: base color GELAP (hilangkan garis putih akibat aliasing)
         tabThumb = New("Frame", {
             Name = "Thumb",
             Position = UDim2.fromOffset(TRACK_PAD, 0),
             Size = UDim2.new(0, TAB_W, 1, 0),
-            BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundColor3 = THUMB_BASE,
             Visible = false,
             ZIndex = 1,
             Parent = tabTrack,
@@ -2577,16 +2588,17 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        -- Scrollbar pill kecil di BAWAH strip (gradasi biru tegas)
+        -- Indicator pill kecil di BAWAH strip: tinggi 2px, lebar 58% tab, centered
+        local indW = indicatorWidth()
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET, IND_Y),
-            Size = UDim2.fromOffset(TAB_W, IND_H),
-            BackgroundColor3 = Color3.new(1, 1, 1),
+            Size = UDim2.fromOffset(indW, IND_H),
+            BackgroundColor3 = accents.mid,
             Visible = false,
             Parent = content,
         })
-        Round(tabIndicator, IND_H)   -- pill
+        Round(tabIndicator, IND_H)
         New("UIGradient", {
             Color = ColorSequence.new(accents.top, accents.mid),
             Rotation = 0,
