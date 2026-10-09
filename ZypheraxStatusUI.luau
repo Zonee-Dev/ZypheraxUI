@@ -2418,14 +2418,15 @@ function Library:CreateWindow(cfg)
     end))
 
     -- Tabs ----------------------------------------------------------------
+    -- Strip = SATU pill gelap recessed (tanpa shell/inner/outline) sehingga
+    -- tidak ada ring terang yang bisa tampil sebagai garis putih.
 
     local tabs = {}
     local selectedTab
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
 
     local STRIP_H = 30
-    local STRIP_OUT = 2          -- outline uniform (tidak ada band tebal bawah)
-    local SCROLL_INSET = 2
+    local SCROLL_PAD = 3
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
@@ -2448,7 +2449,7 @@ function Library:CreateWindow(cfg)
         local visible = (viewX + TAB_W > 0) and (viewX < viewportW)
         viewX = math.clamp(viewX, 0, math.max(viewportW - TAB_W, 0))
         tabIndicator.Visible = visible
-        local goal = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET + viewX, IND_Y)
+        local goal = UDim2.fromOffset(SCROLL_PAD + viewX, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
@@ -2495,37 +2496,27 @@ function Library:CreateWindow(cfg)
     end
 
     local function buildTabStrip()
-        -- Shell outline gelap (Border) uniform 2px -> tidak ada garis terang
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Size = UDim2.new(1, 0, 0, STRIP_H),
-            BackgroundColor3 = Theme.Border,
+            BackgroundColor3 = Theme.Inset,
+            ClipsDescendants = true,
             LayoutOrder = 0,
             Parent = content,
         })
         Round(tabStrip, STRIP_H / 2)
 
-        local inner = New("Frame", {
-            Name = "Inner",
-            Position = UDim2.fromOffset(STRIP_OUT, STRIP_OUT),
-            Size = UDim2.new(1, -STRIP_OUT * 2, 1, -STRIP_OUT * 2),
-            BackgroundColor3 = Theme.Inset,
-            ClipsDescendants = true,
-            Parent = tabStrip,
-        })
-        Round(inner, STRIP_H / 2 - STRIP_OUT)
-
         tabScroll = New("ScrollingFrame", {
             Name = "TabScroll",
-            Position = UDim2.fromOffset(SCROLL_INSET, SCROLL_INSET),
-            Size = UDim2.new(1, -SCROLL_INSET * 2, 1, -SCROLL_INSET * 2),
+            Position = UDim2.fromOffset(SCROLL_PAD, SCROLL_PAD),
+            Size = UDim2.new(1, -SCROLL_PAD * 2, 1, -SCROLL_PAD * 2),
             BackgroundTransparency = 1,
             ScrollingDirection = Enum.ScrollingDirection.X,
             ElasticBehavior = Enum.ElasticBehavior.Never,
             ScrollBarThickness = 0,
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.X,
-            Parent = inner,
+            Parent = tabStrip,
         })
 
         tabTrack = New("Frame", {
@@ -2545,7 +2536,7 @@ function Library:CreateWindow(cfg)
             ZIndex = 1,
             Parent = tabTrack,
         })
-        Round(tabThumb, (STRIP_H - STRIP_OUT * 2 - SCROLL_INSET * 2) / 2)
+        Round(tabThumb, (STRIP_H - SCROLL_PAD * 2) / 2)
         New("UIGradient", {
             Color = ColorSequence.new(
                 accents.mid:Lerp(accents.top, 0.25),
@@ -2577,7 +2568,7 @@ function Library:CreateWindow(cfg)
 
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
-            Position = UDim2.fromOffset(STRIP_OUT + SCROLL_INSET, IND_Y),
+            Position = UDim2.fromOffset(SCROLL_PAD, IND_Y),
             Size = UDim2.fromOffset(TAB_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
