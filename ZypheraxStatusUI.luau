@@ -1,7 +1,7 @@
 --════════════════════════════════════════════════════════════════════════════
--- NOTCH UI • FULL FIXED BUILD
--- Panel notch 100% primitive antialiased (UICorner + UIStroke).
--- Slice hanya untuk potongan sumbu-sejajar → nol gerigi, nol seam UIScale.
+-- NOTCH UI • FULL FIXED BUILD (v2 — runtime fix)
+-- FIX: ZIndexBehavior adalah properti ScreenGui, BUKAN GuiService.
+--      Referensi GuiService dihapus; behavior diset hanya di ScreenGui.
 -- Install: LocalScript (StarterPlayerScripts / StarterGui).
 -- Kontrol: drag kartu = geser widget • RightShift = show/hide (tween).
 --════════════════════════════════════════════════════════════════════════════
@@ -9,9 +9,6 @@
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS          = game:GetService("UserInputService")
-local GuiService   = game:GetService("GuiService")
-
-GuiService.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 --────────────────────────────────────────────────────────────────────────────
 -- THEME
@@ -102,15 +99,16 @@ end
 
 --────────────────────────────────────────────────────────────────────────────
 -- GUI ROOT
+-- ZIndexBehavior diset DI SINI (properti ScreenGui), bukan di GuiService.
 --────────────────────────────────────────────────────────────────────────────
 local gui = New("ScreenGui", {
 	Name = "NotchUI",
 	ResetOnSpawn = false,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,   -- ✅ satu-satunya tempat yang valid
 	Parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
 })
 
-local uiScale = New("UiScale", { Scale = 0.94, Parent = gui })
+local uiScale = New("UIScale", { Scale = 0.94, Parent = gui })
 
 local root = New("Frame", {
 	Name = "Root",
@@ -181,7 +179,6 @@ buildSilhouette(false)  -- fill surface (z2)
 
 --────────────────────────────────────────────────────────────────────────────
 -- PANEL • CORNER PATCHES (quarter-disc fill + quarter-ring stroke, AA)
--- Clip dilebarkan +S agar band stroke tidak terpotong (fix nick sambungan).
 -- UIGradient WAJIB di-parent ke UIStroke, bukan ke Frame.
 --────────────────────────────────────────────────────────────────────────────
 for _, c in ipairs({
@@ -332,7 +329,6 @@ Label({
 	Text = "🦊",
 	TextSize = 18,
 	Size = UDim2.fromScale(1, 1),
-	Position = UDim2.fromOffset(0, 0),
 	TextXAlignment = Enum.TextXAlignment.Center,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	Parent = avatarCore,
