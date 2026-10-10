@@ -149,6 +149,18 @@ local function Round(parent, radius)
     return New("UICorner", { CornerRadius = UDim.new(0, radius), Parent = parent })
 end
 
+-- ScrollBarThickness = 0 saja TIDAK cukup di sebagian versi Roblox: masih ada garis
+-- tipis (scrollbar bawaan) yang tergambar di tepi kanan. Matikan juga transparansi
+-- dan gambarnya supaya scrollbar bawaan benar-benar hilang.
+local function HideScrollBar(frame)
+    frame.ScrollBarThickness = 0
+    frame.ScrollBarImageTransparency = 1
+    frame.TopImage = ""
+    frame.MidImage = ""
+    frame.BottomImage = ""
+    return frame
+end
+
 local function Tween(obj, duration, props, style, direction)
     local tween = TweenService:Create(
         obj,
@@ -1117,6 +1129,7 @@ local function BuildItems(page, accents, ctx)
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             Parent = list,
         })
+        HideScrollBar(scroll)
         New("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = scroll })
         New("UIPadding", {
             PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
@@ -2619,6 +2632,7 @@ function Library:CreateWindow(cfg)
             AutomaticCanvasSize = Enum.AutomaticSize.X,
             Parent = tabStrip,
         })
+        HideScrollBar(tabScroll)
 
         tabTrack = New("Frame", {
             Name = "Track",
@@ -2769,6 +2783,7 @@ function Library:CreateWindow(cfg)
             Visible = false,
             Parent = holder,
         })
+        HideScrollBar(page)
         New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
         New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD), Parent = page })
 
