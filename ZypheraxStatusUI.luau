@@ -114,8 +114,17 @@ local BLACKS = {
 local Library = {
     Unloaded = false,
     Windows = {},
-    Icons = { chevron = "", close = "", minimize = "", discord = "", check = "", crown = "", info = "", warn = "" },
+    Icons = {
+        chevron = "", chevronDown = "", close = "", minimize = "", check = "",
+        maximize = "", search = "", refresh = "", discord = "",
+        crown = "", info = "", warn = "",
+    },
 }
+
+-- Override icon drawn dengan asset upload: Library:SetIcon("refresh", "rbxassetid://...")
+function Library:SetIcon(name, asset)
+    self.Icons[name] = asset or ""
+end
 
 -- Utilities -------------------------------------------------------------
 
@@ -220,6 +229,9 @@ local function Fill(parent, name, radius, color, zIndex, inset)
     return fill
 end
 
+-- Font built-in: Inter (client Roblox) -> SourceSansPro -> Gotham enum ----
+local FONT_FAMILY = "rbxasset://fonts/families/Inter.json"
+local FONT_FALLBACK = "rbxasset://fonts/families/SourceSansPro.json"
 local FONT_BY_WEIGHT = {
     [Enum.FontWeight.Regular] = Enum.Font.Gotham,
     [Enum.FontWeight.Medium] = Enum.Font.GothamMedium,
@@ -228,11 +240,20 @@ local FONT_BY_WEIGHT = {
 }
 
 local function MakeFont(weight)
-    local ok, font = pcall(Font.fromEnum, FONT_BY_WEIGHT[weight] or Enum.Font.Gotham)
+    local ok, font = pcall(function()
+        return Font.new(FONT_FAMILY, weight)
+    end)
     if ok and font then
         return font
     end
-    return Font.new("rbxasset://fonts/families/SourceSansPro.json", weight)
+    local ok2, font2 = pcall(function()
+        return Font.new(FONT_FALLBACK, weight)
+    end)
+    if ok2 and font2 then
+        return font2
+    end
+    local ok3, font3 = pcall(Font.fromEnum, FONT_BY_WEIGHT[weight] or Enum.Font.Gotham)
+    return ok3 and font3 or Font.fromEnum(Enum.Font.Gotham)
 end
 
 local Typo = {
@@ -302,7 +323,7 @@ local function ViewportScale()
     return math.clamp(math.min(viewport.X / (WIDTH + 120), viewport.Y / (TOTAL_H + OVERHANG + 120)), 0.55, 1.15)
 end
 
--- Glyphs -----------------------------------------------------------------
+-- Glyphs (built-in icon set, registry di Library.Icons) ------------------
 
 local function Glyph(parent, name, color, size)
     local holder = New("Frame", {
@@ -338,22 +359,51 @@ local function Glyph(parent, name, color, size)
             })
             Round(part, thickness / 2)
             table.insert(parts, part)
+            return part
+        end
+
+        local function ring(w, h, radius, thickness, dx, dy)
+            local part = New("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(0.5, dx, 0.5, dy),
+                Size = UDim2.fromOffset(w, h),
+                BackgroundTransparency = 1,
+                Parent = holder,
+            })
+            Round(part, radius)
+            New("UIStroke", {
+                Color = color,
+                Thickness = thickness,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Parent = part,
+            })
+            table.insert(parts, part)
+            return part
         end
 
         if name == "chevron" then
-            bar(size * 0.42, 2, 45, -size * 0.04, -size * 0.15)
-            bar(size * 0.42, 2, -45, -size * 0.04, size * 0.15)
+            bar(size * 0.44, 2, 45, -size * 0.02, -size * 0.16)
+            bar(size * 0.44, 2, -45, -size * 0.02, size * 0.16)
         elseif name == "chevronDown" then
-            bar(size * 0.42, 2, 45, -size * 0.15, -size * 0.04)
-            bar(size * 0.42, 2, -45, size * 0.15, -size * 0.04)
+            bar(size * 0.44, 2, 45, -size * 0.16, -size * 0.02)
+            bar(size * 0.44, 2, -45, size * 0.16, -size * 0.02)
         elseif name == "close" then
-            bar(size * 0.72, 2, 45, 0, 0)
-            bar(size * 0.72, 2, -45, 0, 0)
+            bar(size * 0.7, 2, 45, 0, 0)
+            bar(size * 0.7, 2, -45, 0, 0)
         elseif name == "minimize" then
-            bar(size * 0.6, 2, 0, 0, 0)
+            bar(size * 0.62, 2, 0, 0, 0)
         elseif name == "check" then
-            bar(size * 0.34, 2, 45, -size * 0.16, size * 0.06)
-            bar(size * 0.58, 2, -45, size * 0.1, -size * 0.06)
+            bar(size * 0.32, 2, 45, -size * 0.16, size * 0.06)
+            bar(size * 0.56, 2, -45, size * 0.1, -size * 0.06)
+        elseif name == "maximize" then
+            ring(size * 0.62, size * 0.62, 2, 2, 0, 0)
+        elseif name == "search" then
+            ring(size * 0.58, size * 0.58, size * 0.29, 2, -size * 0.08, -size * 0.08)
+            bar(size * 0.28, 2, 45, size * 0.24, size * 0.24)
+        elseif name == "refresh" then
+            ring(size * 0.66, size * 0.66, size * 0.33, 2, 0, 0)
+            bar(size * 0.26, 2, -45, size * 0.3, -size * 0.28)
+            bar(size * 0.26, 2, 45, size * 0.34, -size * 0.10)
         elseif name == "crown" then
             local u = size / 12
             bar(10.4 * u, 2.4 * u, 0, 0, 4.7 * u)
@@ -373,122 +423,27 @@ local function Glyph(parent, name, color, size)
     end
 
     local function paint(newColor, duration)
-        local prop = isImage and "ImageColor3" or "BackgroundColor3"
         for _, part in ipairs(parts) do
-            if duration and duration > 0 then
-                Tween(part, duration, { [prop] = newColor })
+            local target, prop
+            if isImage then
+                target, prop = part, "ImageColor3"
             else
-                part[prop] = newColor
+                local stroke = part:FindFirstChildOfClass("UIStroke")
+                if stroke then
+                    target, prop = stroke, "Color"
+                else
+                    target, prop = part, "BackgroundColor3"
+                end
+            end
+            if duration and duration > 0 then
+                Tween(target, duration, { [prop] = newColor })
+            else
+                target[prop] = newColor
             end
         end
     end
 
     return holder, paint
-end
-
-local function MaximizeGlyph(parent, color, size)
-    local holder = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size, size),
-        BackgroundTransparency = 1,
-        Parent = parent,
-    })
-    local box = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size * 0.6, size * 0.6),
-        BackgroundTransparency = 1,
-        Parent = holder,
-    })
-    Round(box, 2)
-    New("UIStroke", {
-        Color = color,
-        Thickness = 1.8,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = box,
-    })
-    return holder
-end
-
-local function RefreshGlyph(parent, color, size)
-    local holder = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size, size),
-        BackgroundTransparency = 1,
-        Parent = parent,
-    })
-    local ring = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size * 0.74, size * 0.74),
-        BackgroundTransparency = 1,
-        Parent = holder,
-    })
-    Round(ring, size * 0.37)
-    New("UIStroke", {
-        Color = color,
-        Thickness = 1.7,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = ring,
-    })
-    local arrow = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.8, 0.2),
-        Size = UDim2.fromOffset(size * 0.3, size * 0.3),
-        BackgroundTransparency = 1,
-        Parent = holder,
-    })
-    local function arrowBar(length, thickness, rotation, dx, dy)
-        local part = New("Frame", {
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, dx, 0.5, dy),
-            Size = UDim2.fromOffset(length, thickness),
-            Rotation = rotation,
-            BackgroundColor3 = color,
-            Parent = arrow,
-        })
-        Round(part, thickness / 2)
-    end
-    arrowBar(size * 0.24, 1.7, -45, 0, -size * 0.07)
-    arrowBar(size * 0.24, 1.7, 45, 0, size * 0.07)
-    return holder
-end
-
-local function SearchIcon(parent, color, size)
-    local holder = New("Frame", {
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.fromOffset(size, size),
-        BackgroundTransparency = 1,
-        Parent = parent,
-    })
-    local lensSize = size * 0.62
-    local lens = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(size * 0.4, size * 0.4),
-        Size = UDim2.fromOffset(lensSize, lensSize),
-        BackgroundTransparency = 1,
-        Parent = holder,
-    })
-    Round(lens, lensSize / 2)
-    New("UIStroke", {
-        Color = color,
-        Thickness = 1.4,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = lens,
-    })
-    local handle = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(size * 0.76, size * 0.76),
-        Size = UDim2.fromOffset(size * 0.32, 1.4),
-        Rotation = 45,
-        BackgroundColor3 = color,
-        Parent = holder,
-    })
-    Round(handle, 0.7)
-    return holder
 end
 
 -- Dragging ---------------------------------------------------------------
@@ -826,18 +781,29 @@ local function BuildItems(page, accents, ctx)
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = wrap,
         })
+        -- Divider gradasi biru dengan fade ke kanan
         local divider = New("Frame", {
             AnchorPoint = Vector2.new(0, 0.5),
             Position = UDim2.new(0, 14, 0.5, 0),
-            Size = UDim2.new(1, -14, 0, 1),
-            BackgroundColor3 = Theme.Border,
-            BackgroundTransparency = 0.45,
+            Size = UDim2.new(1, -14, 0, 2),
+            BackgroundColor3 = Color3.new(1, 1, 1),
             Parent = wrap,
+        })
+        Round(divider, 1)
+        New("UIGradient", {
+            Color = ColorSequence.new(accents.top, accents.mid),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(0.75, 0.15),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+            Rotation = 0,
+            Parent = divider,
         })
         heading:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
             local width = heading.AbsoluteSize.X + 12
             divider.Position = UDim2.new(0, width, 0.5, 0)
-            divider.Size = UDim2.new(1, -width, 0, 1)
+            divider.Size = UDim2.new(1, -width, 0, 2)
         end)
         return self
     end
@@ -1223,7 +1189,7 @@ local function BuildItems(page, accents, ctx)
                 entry.Activated:Connect(function()
                     obj:Set(option)
                     setOpen(false)
-                end)
+               	end)
             end
         end
 
@@ -1830,7 +1796,9 @@ function Library:CreateWindow(cfg)
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = searchFrame,
     })
-    SearchIcon(searchFrame, Theme.TextTertiary, 11).Position = UDim2.new(0, 10, 0.5, 0)
+    local searchIcon = Glyph(searchFrame, "search", Theme.TextTertiary, 11)
+    searchIcon.AnchorPoint = Vector2.new(0, 0.5)
+    searchIcon.Position = UDim2.new(0, 10, 0.5, 0)
 
     local searchBox = New("TextBox", {
         Name = "Input",
@@ -1916,7 +1884,7 @@ function Library:CreateWindow(cfg)
     wireTraffic(closeBtn, closeScale, { holder = closeHolder, rotate = true })
 
     local focusBtn, focusStroke, focusScale = makeTraffic("FocusBtn", 2, FOCUS_BASE, FOCUS_RIM)
-    local focusHolder = MaximizeGlyph(focusBtn, FOCUS_ICON, 11)
+    local focusHolder = Glyph(focusBtn, "maximize", FOCUS_ICON, 11)
     local focusGlyphScale = New("UIScale", { Scale = 1, Parent = focusHolder })
     wireTraffic(focusBtn, focusScale, { holder = focusHolder, glyphScale = focusGlyphScale })
 
@@ -1926,7 +1894,7 @@ function Library:CreateWindow(cfg)
     wireTraffic(minBtn, minScale, { holder = minHolder, glyphScale = minGlyphScale })
 
     local refreshBtn, refreshStroke, refreshScale = makeTraffic("RefreshBtn", 4, REFRESH_BASE, REFRESH_RIM)
-    local refreshHolder = RefreshGlyph(refreshBtn, REFRESH_ICON, 12)
+    local refreshHolder = Glyph(refreshBtn, "refresh", REFRESH_ICON, 12)
     wireTraffic(refreshBtn, refreshScale, { holder = refreshHolder, spin = true })
 
     -- Search filter ------------------------------------------------------
@@ -2429,7 +2397,7 @@ function Library:CreateWindow(cfg)
     local TRACK_PAD = 2
     local TAB_W = 92
     local IND_H = 3
-    local IND_W = 44             -- scrollbar pill pendek & elegan
+    local IND_W = 44
     local IND_Y = STRIP_H + 3
 
     local function layoutIndicator(animate)
