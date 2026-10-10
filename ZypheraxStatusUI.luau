@@ -1646,6 +1646,7 @@ function Library:CreateWindow(cfg)
     local window, connections = {}, {}
     local focused = false
     local FOCUS_SCALE = 1.18
+    local selectedTab = nil
 
     local parent = ResolveParent()
     local previous = parent:FindFirstChild("ZypheraxHub")
@@ -1925,6 +1926,109 @@ function Library:CreateWindow(cfg)
         ZIndex = 4,
         Parent = panel,
     })
+
+    -- SATU scrollbar halaman level-window (kanan): rail invisble, thumb biru
+    local PAGE_SCROLL_W = 6
+    local PAGE_SCROLL_MARGIN = 6
+    local PAGE_SCROLL_PAD = 16
+
+    local pageScrollTrack = New("Frame", {
+        Name = "PageScroll",
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_MARGIN),
+        Size = UDim2.new(0, PAGE_SCROLL_W, 1, -PAGE_SCROLL_MARGIN * 2),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 9,
+        Parent = content,
+    })
+
+    local pageScrollThumb = New("Frame", {
+        Name = "Thumb",
+        Size = UDim2.new(1, 0, 0, 28),
+        BackgroundColor3 = Theme.Accent,
+        ZIndex = 10,
+        Parent = pageScrollTrack,
+    })
+    Round(pageScrollThumb, PAGE_SCROLL_W / 2)
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Theme.Accent),
+            ColorSequenceKeypoint.new(1, Theme.StrokeBottom),
+        }),
+        Rotation = 90,
+        Parent = pageScrollThumb,
+    })
+    New("UIStroke", {
+        Color = Theme.StrokeBottom,
+        Thickness = 1,
+        Transparency = 0.35,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = pageScrollThumb,
+    })
+
+    local function updatePageScroll()
+        local page = selectedTab and selectedTab.Page
+        if not page or not page.Visible then
+            pageScrollTrack.Visible = false
+            return
+        end
+        local windowH = page.AbsoluteWindowSize.Y
+        local contentH = page.CanvasSize.Y.Offset
+        if windowH <= 0 or contentH <= windowH + 1 then
+            pageScrollTrack.Visible = false
+            return
+        end
+        local trackH = pageScrollTrack.AbsoluteSize.Y
+        if trackH <= 0 then
+            pageScrollTrack.Visible = false
+            return
+        end
+
+        pageScrollTrack.Visible = true
+        local frac = math.clamp(windowH / contentH, 0.08, 1)
+        local thumbH = math.clamp(trackH * frac, 28, trackH)
+        local maxScroll = math.max(contentH - windowH, 1)
+        local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
+
+        pageScrollThumb.Size = UDim2.new(1, 0, 0, thumbH)
+        pageScrollThumb.Position = UDim2.fromOffset(0, scrollFrac * (trackH - thumbH))
+    end
+
+    -- Drag thumb untuk scroll manual
+    pageScrollThumb.InputBegan:Connect(function(input)
+        if not IsPointer(input) then
+            return
+        end
+        local page = selectedTab and selectedTab.Page
+        if not page then
+            return
+        end
+        local startY = input.Position.Y
+        local startCanvas = page.CanvasPosition.Y
+        local trackH = pageScrollTrack.AbsoluteSize.Y
+        local thumbH = pageScrollThumb.AbsoluteSize.Y
+        local contentH = page.CanvasSize.Y.Offset
+        local windowH = page.AbsoluteWindowSize.Y
+        local maxScroll = math.max(contentH - windowH, 1)
+
+        local move, ended
+        move = UserInputService.InputChanged:Connect(function(ch)
+            if not IsMove(ch) then
+                return
+            end
+            local dy = ch.Position.Y - startY
+            local frac = dy / math.max(trackH - thumbH, 1)
+            page.CanvasPosition = Vector2.new(0, math.clamp(startCanvas + frac * maxScroll, 0, maxScroll))
+        end)
+        ended = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                move:Disconnect()
+                ended:Disconnect()
+            end
+        end)
+    end)
 
     -- Logo badge --------------------------------------------------------
 
@@ -2385,7 +2489,6 @@ function Library:CreateWindow(cfg)
     -- Tabs ----------------------------------------------------------------
 
     local tabs = {}
-    local selectedTab
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
 
     local STRIP_H = 30
@@ -2396,83 +2499,6 @@ function Library:CreateWindow(cfg)
     local IND_H = 3
     local IND_W = 44
     local IND_Y = STRIP_H + 3
-
-    -- Custom page scrollbar (kanan): rail invisble + thumb pill biru pekat
-    local PAGE_SCROLL_W = 6
-    local PAGE_SCROLL_MARGIN = 6
-    local PAGE_SCROLL_PAD = 16
-
-    local function makePageScroll(page)
-        local holder = page.Parent
-
-        local track = New("Frame", {
-            Name = "PageScroll",
-            AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_MARGIN),
-            Size = UDim2.new(0, PAGE_SCROLL_W, 1, -PAGE_SCROLL_MARGIN * 2),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true,
-            Visible = false,
-            ZIndex = 6,
-            Parent = holder,
-        })
-
-        local thumb = New("Frame", {
-            Name = "Thumb",
-            Size = UDim2.new(1, 0, 0, 28),
-            BackgroundColor3 = accents.mid,
-            ZIndex = 7,
-            Parent = track,
-        })
-        Round(thumb, PAGE_SCROLL_W / 2)
-        New("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, accents.mid),
-                ColorSequenceKeypoint.new(1, accents.bottom),
-            }),
-            Rotation = 90,
-            Parent = thumb,
-        })
-
-        local function update()
-            if not page.Visible then
-                track.Visible = false
-                return
-            end
-            local windowH = page.AbsoluteWindowSize.Y
-            local contentH = page.CanvasSize.Y.Offset
-            if windowH <= 0 or contentH <= windowH + 1 then
-                track.Visible = false
-                return
-            end
-            local trackH = track.AbsoluteSize.Y
-            if trackH <= 0 then
-                track.Visible = false
-                return
-            end
-
-            track.Visible = true
-            local frac = math.clamp(windowH / contentH, 0.08, 1)
-            local thumbH = math.clamp(trackH * frac, 28, trackH)
-            local maxScroll = math.max(contentH - windowH, 1)
-            local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
-
-            thumb.Size = UDim2.new(1, 0, 0, thumbH)
-            thumb.Position = UDim2.fromOffset(0, scrollFrac * (trackH - thumbH))
-        end
-
-        page:GetPropertyChangedSignal("CanvasPosition"):Connect(update)
-        page:GetPropertyChangedSignal("CanvasSize"):Connect(update)
-        page:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
-        page:GetPropertyChangedSignal("Visible"):Connect(update)
-        task.defer(update)
-        task.spawn(function()
-            task.wait(0.1)
-            update()
-        end)
-
-        return track, thumb
-    end
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
@@ -2487,9 +2513,9 @@ function Library:CreateWindow(cfg)
         local canvasX = tabScroll.CanvasPosition.X
         local viewportW = tabScroll.AbsoluteSize.X
         local viewCenter = tabCenter - canvasX
-        local visible = viewCenter > 0 and viewCenter < viewportW
+        local visibleInd = viewCenter > 0 and viewCenter < viewportW
         local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewportW - IND_W, 0))
-        tabIndicator.Visible = visible
+        tabIndicator.Visible = visibleInd
         local goal = UDim2.fromOffset(SCROLL_PAD + x, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
@@ -2533,6 +2559,7 @@ function Library:CreateWindow(cfg)
             end
         end
         layoutThumb(animate)
+        updatePageScroll()
         applySearch()
     end
 
@@ -2709,7 +2736,10 @@ function Library:CreateWindow(cfg)
         New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
         New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD), Parent = page })
 
-        makePageScroll(page)
+        page:GetPropertyChangedSignal("CanvasPosition"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("CanvasSize"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("AbsoluteSize"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("Visible"):Connect(updatePageScroll)
 
         local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
         table.insert(tabs, tab)
@@ -2729,6 +2759,7 @@ function Library:CreateWindow(cfg)
     window.CreateTab = window.AddTab
 
     window:SetVisible(true)
+    task.defer(updatePageScroll)
     table.insert(Library.Windows, window)
     window.Gui = gui
     return window
