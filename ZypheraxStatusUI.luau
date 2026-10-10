@@ -322,7 +322,7 @@ local function ViewportScale()
     return math.clamp(math.min(viewport.X / (WIDTH + 120), viewport.Y / (TOTAL_H + OVERHANG + 120)), 0.55, 1.15)
 end
 
--- Glyphs (built-in icon set) ---------------------------------------------
+-- Glyphs (built-in icon set, registry di Library.Icons) ------------------
 
 local function Glyph(parent, name, color, size)
     local holder = New("Frame", {
@@ -2397,36 +2397,39 @@ function Library:CreateWindow(cfg)
     local IND_W = 44
     local IND_Y = STRIP_H + 3
 
-    -- Custom page scrollbar: tipis, gradient, ada jarak dari shape
-    local PAGE_SCROLL_W = 4
-    local PAGE_SCROLL_MARGIN = 5
-    local PAGE_SCROLL_PAD = 14
+    -- Custom page scrollbar: rail invisble, thumb pill gradient ber-jarak
+    local PAGE_SCROLL_W = 5
+    local PAGE_SCROLL_MARGIN = 6
+    local PAGE_SCROLL_PAD = 16
 
     local function makePageScroll(page)
         local holder = page.Parent
+
         local track = New("Frame", {
             Name = "PageScroll",
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_MARGIN),
             Size = UDim2.new(0, PAGE_SCROLL_W, 1, -PAGE_SCROLL_MARGIN * 2),
-            BackgroundColor3 = Theme.Track,
-            BackgroundTransparency = 0.8,
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
             Visible = false,
             ZIndex = 6,
             Parent = holder,
         })
-        Round(track, PAGE_SCROLL_W / 2)
 
         local thumb = New("Frame", {
             Name = "Thumb",
-            Size = UDim2.new(1, 0, 0, 20),
-            BackgroundColor3 = Color3.new(1, 1, 1),
+            Size = UDim2.new(1, 0, 0, 24),
+            BackgroundColor3 = accents.top,
             ZIndex = 7,
             Parent = track,
         })
         Round(thumb, PAGE_SCROLL_W / 2)
         New("UIGradient", {
-            Color = ColorSequence.new(accents.top, accents.bottom),
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, accents.top),
+                ColorSequenceKeypoint.new(1, accents.bottom),
+            }),
             Rotation = 90,
             Parent = thumb,
         })
@@ -2438,16 +2441,22 @@ function Library:CreateWindow(cfg)
             end
             local windowH = page.AbsoluteWindowSize.Y
             local contentH = page.CanvasSize.Y.Offset
-            if windowH <= 0 or contentH <= windowH then
+            if windowH <= 0 or contentH <= windowH + 1 then
                 track.Visible = false
                 return
             end
-            track.Visible = true
             local trackH = track.AbsoluteSize.Y
-            local frac = windowH / contentH
-            local thumbH = math.max(trackH * frac, 18)
-            local maxScroll = contentH - windowH
+            if trackH <= 0 then
+                track.Visible = false
+                return
+            end
+
+            track.Visible = true
+            local frac = math.clamp(windowH / contentH, 0.05, 1)
+            local thumbH = math.clamp(trackH * frac, 24, trackH)
+            local maxScroll = math.max(contentH - windowH, 1)
             local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
+
             thumb.Size = UDim2.new(1, 0, 0, thumbH)
             thumb.Position = UDim2.fromOffset(0, scrollFrac * (trackH - thumbH))
         end
@@ -2457,6 +2466,11 @@ function Library:CreateWindow(cfg)
         page:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
         page:GetPropertyChangedSignal("Visible"):Connect(update)
         task.defer(update)
+        task.spawn(function()
+            task.wait(0.1)
+            update()
+        end)
+
         return track, thumb
     end
 
