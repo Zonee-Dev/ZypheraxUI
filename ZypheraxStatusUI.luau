@@ -1947,6 +1947,10 @@ function Library:CreateWindow(cfg)
     local PAGE_SCROLL_MARGIN = 1   -- jarak dari tepi kanan area page
     local PAGE_SCROLL_VPAD = 2     -- jarak atas/bawah track di dalam area page
     local PAGE_SCROLL_PAD = 14     -- gutter kanan page supaya row tidak tertimpa thumb
+    -- Page dilebarkan sekian px keluar dari area tampil, lalu sisi kanannya dipotong
+    -- oleh ClipsDescendants holder. Scrollbar bawaan Roblox selalu digambar di tepi
+    -- kanan ScrollingFrame, jadi dengan cara ini ia jatuh di luar area yang terlihat.
+    local PAGE_BAR_CLIP = 24
     local PAGE_THUMB_MIN = 20      -- panjang thumb minimum (px)
     local PAGE_THUMB_MAX = 40      -- panjang thumb maksimum (px), anti "kepanjangan"
 
@@ -2705,6 +2709,7 @@ function Library:CreateWindow(cfg)
             Position = UDim2.fromOffset(0, STRIP_H + 10),
             Size = UDim2.new(1, 0, 1, -(STRIP_H + 10)),
             BackgroundTransparency = 1,
+            ClipsDescendants = true,
             LayoutOrder = 1,
             Parent = content,
         })
@@ -2773,7 +2778,7 @@ function Library:CreateWindow(cfg)
 
         local page = New("ScrollingFrame", {
             Name = name,
-            Size = UDim2.fromScale(1, 1),
+            Size = UDim2.new(1, PAGE_BAR_CLIP, 1, 0),
             BackgroundTransparency = 1,
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -2785,7 +2790,7 @@ function Library:CreateWindow(cfg)
         })
         HideScrollBar(page)
         New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
-        New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD), Parent = page })
+        New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD + PAGE_BAR_CLIP), Parent = page })
 
         page:GetPropertyChangedSignal("CanvasPosition"):Connect(updatePageScroll)
         page:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updatePageScroll)
