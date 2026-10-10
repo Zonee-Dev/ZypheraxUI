@@ -1927,108 +1927,141 @@ function Library:CreateWindow(cfg)
         Parent = panel,
     })
 
-    -- SATU scrollbar halaman level-window (kanan): rail invisble, thumb biru
-    local PAGE_SCROLL_W = 6
-    local PAGE_SCROLL_MARGIN = 6
-    local PAGE_SCROLL_PAD = 16
+    -- Scrollbar halaman (kanan): minimalis, thumb pendek, gradient biru seperti outline.
+    -- Tidak ada rail; hanya thumb tipis yang terlihat.
+    local PAGE_SCROLL_W = 4        -- tebal thumb (px)
+    local PAGE_SCROLL_HIT = 10     -- lebar area klik/drag (transparan)
+    local PAGE_SCROLL_MARGIN = 1   -- jarak dari tepi kanan area page
+    local PAGE_SCROLL_VPAD = 2     -- jarak atas/bawah track di dalam area page
+    local PAGE_SCROLL_PAD = 14     -- gutter kanan page supaya row tidak tertimpa thumb
+    local PAGE_THUMB_MIN = 20      -- panjang thumb minimum (px)
+    local PAGE_THUMB_MAX = 40      -- panjang thumb maksimum (px), anti "kepanjangan"
 
-    local pageScrollTrack = New("Frame", {
+    -- Track berupa TextButton (Active) supaya klik/drag di scrollbar tidak ikut
+    -- menggeser window lewat dragFrame. Parent awal = content (tab tunggal). Saat
+    -- tab strip dibuat, track dipindah ke pagesHolder sehingga hanya setinggi area
+    -- page (tidak lagi menumpuk di atas tab strip).
+    local pageScrollTrack = New("TextButton", {
         Name = "PageScroll",
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_MARGIN),
-        Size = UDim2.new(0, PAGE_SCROLL_W, 1, -PAGE_SCROLL_MARGIN * 2),
+        Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_VPAD),
+        Size = UDim2.new(0, PAGE_SCROLL_HIT, 1, -PAGE_SCROLL_VPAD * 2),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
+        Text = "",
+        AutoButtonColor = false,
         Visible = false,
         ZIndex = 9,
         Parent = content,
     })
 
+    -- Warna dasar thumb WAJIB putih: UIGradient dikalikan dengan BackgroundColor3,
+    -- jadi dasar berwarna akan menggelapkan/mengubah gradient.
     local pageScrollThumb = New("Frame", {
         Name = "Thumb",
-        Size = UDim2.new(1, 0, 0, 28),
-        BackgroundColor3 = Theme.Accent,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        Size = UDim2.fromOffset(PAGE_SCROLL_W, PAGE_THUMB_MIN),
+        BackgroundColor3 = Color3.new(1, 1, 1),
         ZIndex = 10,
         Parent = pageScrollTrack,
     })
     Round(pageScrollThumb, PAGE_SCROLL_W / 2)
     New("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.Accent),
-            ColorSequenceKeypoint.new(1, Theme.StrokeBottom),
+            ColorSequenceKeypoint.new(0, accents.top),
+            ColorSequenceKeypoint.new(0.5, accents.mid),
+            ColorSequenceKeypoint.new(1, accents.bottom),
         }),
         Rotation = 90,
         Parent = pageScrollThumb,
     })
-    New("UIStroke", {
-        Color = Theme.StrokeBottom,
-        Thickness = 1,
-        Transparency = 0.35,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = pageScrollThumb,
-    })
 
-    local function updatePageScroll()
+    -- Semua ukuran dihitung dalam satuan lokal (dibagi UIScale) karena properti
+    -- Absolute* berada di satuan layar. AutomaticCanvasSize tidak mengubah
+    -- CanvasSize, jadi tinggi konten diambil dari AbsoluteCanvasSize.
+    local function scrollMetrics()
         local page = selectedTab and selectedTab.Page
         if not page or not page.Visible then
-            pageScrollTrack.Visible = false
-            return
+            return nil
         end
-        local windowH = page.AbsoluteWindowSize.Y
-        local contentH = page.CanvasSize.Y.Offset
-        if windowH <= 0 or contentH <= windowH + 1 then
-            pageScrollTrack.Visible = false
-            return
+        local s = math.max(uiScale.Scale, 0.01)
+        local windowH = page.AbsoluteWindowSize.Y / s
+        local canvasH = page.AbsoluteCanvasSize.Y / s
+        local trackH = windowH - PAGE_SCROLL_VPAD * 2
+        if windowH <= 0 or trackH <= 0 or canvasH <= windowH + 1 then
+            return nil
         end
-        local trackH = pageScrollTrack.AbsoluteSize.Y
-        if trackH <= 0 then
-            pageScrollTrack.Visible = false
-            return
-        end
-
-        pageScrollTrack.Visible = true
-        local frac = math.clamp(windowH / contentH, 0.08, 1)
-        local thumbH = math.clamp(trackH * frac, 28, trackH)
-        local maxScroll = math.max(contentH - windowH, 1)
-        local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
-
-        pageScrollThumb.Size = UDim2.new(1, 0, 0, thumbH)
-        pageScrollThumb.Position = UDim2.fromOffset(0, scrollFrac * (trackH - thumbH))
+        local hi = math.min(PAGE_THUMB_MAX, trackH)
+        local lo = math.min(PAGE_THUMB_MIN, hi)
+        local thumbH = math.clamp(trackH * (windowH / canvasH), lo, hi)
+        return {
+            Page = page,
+            Scale = s,
+            ThumbH = thumbH,
+            Travel = math.max(trackH - thumbH, 1),
+            MaxScroll = math.max(canvasH - windowH, 1),
+        }
     end
 
-    -- Drag thumb untuk scroll manual
-    pageScrollThumb.InputBegan:Connect(function(input)
+    local function updatePageScroll()
+        local m = scrollMetrics()
+        if not m then
+            pageScrollTrack.Visible = false
+            return
+        end
+        local alpha = math.clamp(m.Page.CanvasPosition.Y / m.MaxScroll, 0, 1)
+        pageScrollTrack.Visible = true
+        pageScrollThumb.Size = UDim2.fromOffset(PAGE_SCROLL_W, m.ThumbH)
+        pageScrollThumb.Position = UDim2.new(0.5, 0, 0, alpha * m.Travel)
+    end
+
+    -- Drag thumb / klik di area scrollbar
+    pageScrollTrack.InputBegan:Connect(function(input)
         if not IsPointer(input) then
             return
         end
-        local page = selectedTab and selectedTab.Page
-        if not page then
+        local m = scrollMetrics()
+        if not m then
             return
         end
-        local startY = input.Position.Y
-        local startCanvas = page.CanvasPosition.Y
-        local trackH = pageScrollTrack.AbsoluteSize.Y
-        local thumbH = pageScrollThumb.AbsoluteSize.Y
-        local contentH = page.CanvasSize.Y.Offset
-        local windowH = page.AbsoluteWindowSize.Y
-        local maxScroll = math.max(contentH - windowH, 1)
+        local page = m.Page
+
+        local function trackY(position)
+            return (position.Y - pageScrollTrack.AbsolutePosition.Y) / m.Scale
+        end
+
+        -- tahan di posisi mana pada thumb; klik di luar thumb = thumb loncat ke kursor
+        local grab = trackY(input.Position) - pageScrollThumb.Position.Y.Offset
+        if grab < 0 or grab > m.ThumbH then
+            grab = m.ThumbH / 2
+        end
+
+        local function apply(position)
+            local alpha = math.clamp((trackY(position) - grab) / m.Travel, 0, 1)
+            page.CanvasPosition = Vector2.new(0, alpha * m.MaxScroll)
+        end
+
+        apply(input.Position)
+        page.ScrollingEnabled = false
 
         local move, ended
-        move = UserInputService.InputChanged:Connect(function(ch)
-            if not IsMove(ch) then
-                return
+        move = UserInputService.InputChanged:Connect(function(changed)
+            if IsMove(changed) then
+                apply(changed.Position)
             end
-            local dy = ch.Position.Y - startY
-            local frac = dy / math.max(trackH - thumbH, 1)
-            page.CanvasPosition = Vector2.new(0, math.clamp(startCanvas + frac * maxScroll, 0, maxScroll))
         end)
         ended = input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 move:Disconnect()
                 ended:Disconnect()
+                page.ScrollingEnabled = true
             end
         end)
     end)
+
+    table.insert(connections, uiScale:GetPropertyChangedSignal("Scale"):Connect(function()
+        task.defer(updatePageScroll)
+    end))
 
     -- Logo badge --------------------------------------------------------
 
@@ -2662,6 +2695,9 @@ function Library:CreateWindow(cfg)
             Parent = content,
         })
 
+        -- scrollbar mengikuti area page (di bawah tab strip), bukan seluruh content
+        pageScrollTrack.Parent = pagesHolder
+
         layoutIndicator(false)
     end
 
@@ -2737,8 +2773,8 @@ function Library:CreateWindow(cfg)
         New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD), Parent = page })
 
         page:GetPropertyChangedSignal("CanvasPosition"):Connect(updatePageScroll)
-        page:GetPropertyChangedSignal("CanvasSize"):Connect(updatePageScroll)
-        page:GetPropertyChangedSignal("AbsoluteSize"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updatePageScroll)
         page:GetPropertyChangedSignal("Visible"):Connect(updatePageScroll)
 
         local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
