@@ -2397,8 +2397,8 @@ function Library:CreateWindow(cfg)
     local IND_W = 44
     local IND_Y = STRIP_H + 3
 
-    -- Custom page scrollbar: rail invisble, thumb pill gradient ber-jarak
-    local PAGE_SCROLL_W = 5
+    -- Custom page scrollbar (kanan): rail invisble + thumb pill biru pekat
+    local PAGE_SCROLL_W = 6
     local PAGE_SCROLL_MARGIN = 6
     local PAGE_SCROLL_PAD = 16
 
@@ -2419,15 +2419,15 @@ function Library:CreateWindow(cfg)
 
         local thumb = New("Frame", {
             Name = "Thumb",
-            Size = UDim2.new(1, 0, 0, 24),
-            BackgroundColor3 = accents.top,
+            Size = UDim2.new(1, 0, 0, 28),
+            BackgroundColor3 = accents.mid,
             ZIndex = 7,
             Parent = track,
         })
         Round(thumb, PAGE_SCROLL_W / 2)
         New("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, accents.top),
+                ColorSequenceKeypoint.new(0, accents.mid),
                 ColorSequenceKeypoint.new(1, accents.bottom),
             }),
             Rotation = 90,
@@ -2452,8 +2452,8 @@ function Library:CreateWindow(cfg)
             end
 
             track.Visible = true
-            local frac = math.clamp(windowH / contentH, 0.05, 1)
-            local thumbH = math.clamp(trackH * frac, 24, trackH)
+            local frac = math.clamp(windowH / contentH, 0.08, 1)
+            local thumbH = math.clamp(trackH * frac, 28, trackH)
             local maxScroll = math.max(contentH - windowH, 1)
             local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
 
