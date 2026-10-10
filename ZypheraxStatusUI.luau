@@ -121,7 +121,6 @@ local Library = {
     },
 }
 
--- Override icon drawn dengan asset upload: Library:SetIcon("refresh", "rbxassetid://...")
 function Library:SetIcon(name, asset)
     self.Icons[name] = asset or ""
 end
@@ -229,7 +228,7 @@ local function Fill(parent, name, radius, color, zIndex, inset)
     return fill
 end
 
--- Font built-in: Inter (client Roblox) -> SourceSansPro -> Gotham enum ----
+-- Font built-in: Inter -> SourceSansPro -> Gotham enum
 local FONT_FAMILY = "rbxasset://fonts/families/Inter.json"
 local FONT_FALLBACK = "rbxasset://fonts/families/SourceSansPro.json"
 local FONT_BY_WEIGHT = {
@@ -323,7 +322,7 @@ local function ViewportScale()
     return math.clamp(math.min(viewport.X / (WIDTH + 120), viewport.Y / (TOTAL_H + OVERHANG + 120)), 0.55, 1.15)
 end
 
--- Glyphs (built-in icon set, registry di Library.Icons) ------------------
+-- Glyphs (built-in icon set) ---------------------------------------------
 
 local function Glyph(parent, name, color, size)
     local holder = New("Frame", {
@@ -781,7 +780,6 @@ local function BuildItems(page, accents, ctx)
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = wrap,
         })
-        -- Divider gradasi biru dengan fade ke kanan
         local divider = New("Frame", {
             AnchorPoint = Vector2.new(0, 0.5),
             Position = UDim2.new(0, 14, 0.5, 0),
@@ -1114,8 +1112,7 @@ local function BuildItems(page, accents, ctx)
         local scroll = New("ScrollingFrame", {
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
-            ScrollBarThickness = 2,
-            ScrollBarImageColor3 = accents.top,
+            ScrollBarThickness = 0,
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             Parent = list,
@@ -1189,7 +1186,7 @@ local function BuildItems(page, accents, ctx)
                 entry.Activated:Connect(function()
                     obj:Set(option)
                     setOpen(false)
-               	end)
+                end)
             end
         end
 
@@ -2400,6 +2397,69 @@ function Library:CreateWindow(cfg)
     local IND_W = 44
     local IND_Y = STRIP_H + 3
 
+    -- Custom page scrollbar: tipis, gradient, ada jarak dari shape
+    local PAGE_SCROLL_W = 4
+    local PAGE_SCROLL_MARGIN = 5
+    local PAGE_SCROLL_PAD = 14
+
+    local function makePageScroll(page)
+        local holder = page.Parent
+        local track = New("Frame", {
+            Name = "PageScroll",
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -PAGE_SCROLL_MARGIN, 0, PAGE_SCROLL_MARGIN),
+            Size = UDim2.new(0, PAGE_SCROLL_W, 1, -PAGE_SCROLL_MARGIN * 2),
+            BackgroundColor3 = Theme.Track,
+            BackgroundTransparency = 0.8,
+            Visible = false,
+            ZIndex = 6,
+            Parent = holder,
+        })
+        Round(track, PAGE_SCROLL_W / 2)
+
+        local thumb = New("Frame", {
+            Name = "Thumb",
+            Size = UDim2.new(1, 0, 0, 20),
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            ZIndex = 7,
+            Parent = track,
+        })
+        Round(thumb, PAGE_SCROLL_W / 2)
+        New("UIGradient", {
+            Color = ColorSequence.new(accents.top, accents.bottom),
+            Rotation = 90,
+            Parent = thumb,
+        })
+
+        local function update()
+            if not page.Visible then
+                track.Visible = false
+                return
+            end
+            local windowH = page.AbsoluteWindowSize.Y
+            local contentH = page.CanvasSize.Y.Offset
+            if windowH <= 0 or contentH <= windowH then
+                track.Visible = false
+                return
+            end
+            track.Visible = true
+            local trackH = track.AbsoluteSize.Y
+            local frac = windowH / contentH
+            local thumbH = math.max(trackH * frac, 18)
+            local maxScroll = contentH - windowH
+            local scrollFrac = math.clamp(page.CanvasPosition.Y / maxScroll, 0, 1)
+            thumb.Size = UDim2.new(1, 0, 0, thumbH)
+            thumb.Position = UDim2.fromOffset(0, scrollFrac * (trackH - thumbH))
+        end
+
+        page:GetPropertyChangedSignal("CanvasPosition"):Connect(update)
+        page:GetPropertyChangedSignal("CanvasSize"):Connect(update)
+        page:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
+        page:GetPropertyChangedSignal("Visible"):Connect(update)
+        task.defer(update)
+        return track, thumb
+    end
+
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
             return
@@ -2627,14 +2687,15 @@ function Library:CreateWindow(cfg)
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingDirection = Enum.ScrollingDirection.Y,
-            ScrollBarThickness = 2,
-            ScrollBarImageColor3 = accents.top,
+            ScrollBarThickness = 0,
             ElasticBehavior = Enum.ElasticBehavior.Never,
             Visible = false,
             Parent = holder,
         })
         New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
-        New("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = page })
+        New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD), Parent = page })
+
+        makePageScroll(page)
 
         local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
         table.insert(tabs, tab)
