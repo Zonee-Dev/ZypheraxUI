@@ -697,7 +697,12 @@ end
 
 -- Row controls -----------------------------------------------------------
 
-local ROW_RADIUS = 10  -- radius seragam untuk kotak fitur, dropdown, dan paragraph
+local ROW_RADIUS = 14        -- radius seragam untuk kotak fitur, dropdown, dan paragraph
+local ROW_TITLE_SIZE = 14     -- judul fitur
+local ROW_TITLE_WEIGHT = "SemiBold"
+local ROW_DESC_SIZE = 12      -- sub judul (deskripsi) fitur
+local ROW_VALUE_SIZE = 13     -- nilai di sisi kanan (slider / dropdown)
+local ROW_DESC_H = 52         -- tinggi baris yang punya sub judul (judul y=9 h=18, sub judul y=28 h=16)
 
 local function BuildItems(page, accents, ctx)
     local items, order = {}, 0
@@ -734,20 +739,20 @@ local function BuildItems(page, accents, ctx)
         Label({
             AnchorPoint = Vector2.new(0, desc and 0 or 0.5),
             Position = desc and UDim2.fromOffset(12, 9) or UDim2.new(0, 12, 0.5, 0),
-            Size = UDim2.new(1, -(12 + rightInset), 0, 16),
-            Weight = "Medium",
+            Size = UDim2.new(1, -(12 + rightInset), 0, 18),
+            Weight = ROW_TITLE_WEIGHT,
             Text = title,
-            TextSize = 13,
+            TextSize = ROW_TITLE_SIZE,
             TextColor3 = Theme.Text,
             TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = row,
         })
         if desc then
             Label({
-                Position = UDim2.fromOffset(12, 27),
-                Size = UDim2.new(1, -(12 + rightInset), 0, 14),
+                Position = UDim2.fromOffset(12, 28),
+                Size = UDim2.new(1, -(12 + rightInset), 0, 16),
                 Text = desc,
-                TextSize = 11,
+                TextSize = ROW_DESC_SIZE,
                 TextColor3 = Theme.TextTertiary,
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 Parent = row,
@@ -798,7 +803,7 @@ local function BuildItems(page, accents, ctx)
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "Bold",
             Text = string.upper(title or ""),
-            TextSize = 14,
+            TextSize = ROW_TITLE_SIZE + 1,  -- selalu 1 tingkat di atas judul fitur agar hierarki tetap jelas
             TextColor3 = Theme.TextSecondary,
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = wrap,
@@ -864,7 +869,7 @@ local function BuildItems(page, accents, ctx)
             desc = nil
         end
 
-        local row = Row(desc and 50 or 38)
+        local row = Row(desc and ROW_DESC_H or 38)
         Titles(row, title, desc, 40)
 
         local holder, paint = Glyph(row, "chevron", Theme.TextTertiary, 15)
@@ -894,7 +899,7 @@ local function BuildItems(page, accents, ctx)
         end
 
         local obj = { Value = default and true or false }
-        local row = Row(desc and 50 or 38)
+        local row = Row(desc and ROW_DESC_H or 38)
         Titles(row, title, desc, 60)
 
         local track = New("Frame", {
@@ -965,10 +970,10 @@ local function BuildItems(page, accents, ctx)
 
         Label({
             Position = UDim2.fromOffset(12, 9),
-            Size = UDim2.new(1, -90, 0, 16),
-            Weight = "Medium",
+            Size = UDim2.new(1, -90, 0, 18),
+            Weight = ROW_TITLE_WEIGHT,
             Text = title,
-            TextSize = 13,
+            TextSize = ROW_TITLE_SIZE,
             TextColor3 = Theme.Text,
             TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = row,
@@ -976,9 +981,9 @@ local function BuildItems(page, accents, ctx)
         local valueLabel = Label({
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, -12, 0, 9),
-            Size = UDim2.fromOffset(64, 16),
+            Size = UDim2.fromOffset(64, 18),
             Weight = "Medium",
-            TextSize = 12,
+            TextSize = ROW_VALUE_SIZE,
             TextColor3 = accents.top,
             TextXAlignment = Enum.TextXAlignment.Right,
             Parent = row,
@@ -1102,10 +1107,10 @@ local function BuildItems(page, accents, ctx)
         Label({
             AnchorPoint = Vector2.new(0, 0.5),
             Position = UDim2.new(0, 12, 0.5, 0),
-            Size = UDim2.new(0.5, -12, 0, 16),
-            Weight = "Medium",
+            Size = UDim2.new(0.5, -12, 0, 18),
+            Weight = ROW_TITLE_WEIGHT,
             Text = title,
-            TextSize = 13,
+            TextSize = ROW_TITLE_SIZE,
             TextColor3 = Theme.Text,
             TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = row,
@@ -1113,9 +1118,9 @@ local function BuildItems(page, accents, ctx)
         local chosen = Label({
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -34, 0.5, 0),
-            Size = UDim2.new(0.5, -40, 0, 16),
+            Size = UDim2.new(0.5, -40, 0, 18),
             Text = tostring(current or "—"),
-            TextSize = 12,
+            TextSize = ROW_VALUE_SIZE,
             TextColor3 = Theme.TextSecondary,
             TextXAlignment = Enum.TextXAlignment.Right,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1626,9 +1631,9 @@ local function BuildItems(page, accents, ctx)
                 LayoutOrder = 1,
                 Size = UDim2.new(1, 0, 0, 0),
                 AutomaticSize = Enum.AutomaticSize.Y,
-                Weight = "SemiBold",
+                Weight = ROW_TITLE_WEIGHT,
                 Text = title,
-                TextSize = 12,
+                TextSize = ROW_TITLE_SIZE,
                 TextColor3 = Theme.Text,
                 TextWrapped = true,
                 Parent = wrap,
@@ -1639,7 +1644,7 @@ local function BuildItems(page, accents, ctx)
             Size = UDim2.new(1, 0, 0, 0),
             AutomaticSize = Enum.AutomaticSize.Y,
             Text = content,
-            TextSize = 12,
+            TextSize = ROW_DESC_SIZE,
             TextColor3 = Theme.TextSecondary,
             TextWrapped = true,
             Parent = wrap,
