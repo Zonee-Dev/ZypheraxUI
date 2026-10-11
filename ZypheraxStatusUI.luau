@@ -2615,6 +2615,12 @@ function Library:CreateWindow(cfg)
     end
 
     local function buildTabStrip()
+        -- Begitu ada tab strip, page dipindah ke pagesHolder yang punya clip sendiri.
+        -- Clip `content` justru memotong/menipiskan UIStroke strip di tepi atas (stroke
+        -- digambar persis di batas clip), jadi dimatikan. Tanpa strip (1 tab) clip tetap
+        -- menyala supaya page tetap terpotong.
+        content.ClipsDescendants = false
+
         tabStrip = New("Frame", {
             Name = "TabStrip",
             Position = UDim2.fromOffset(STRIP_INSET, STRIP_INSET),
