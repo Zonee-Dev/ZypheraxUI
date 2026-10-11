@@ -46,6 +46,40 @@ local Theme = {
     SteelInk = Color3.fromRGB(12, 20, 38),
 }
 
+-- Badge tones ------------------------------------------------------------
+-- Warna terang untuk badge status (isi transparan + outline & teks terang).
+
+local BADGE_TONES = {
+    success = Color3.fromRGB(74, 222, 128),   -- Online
+    danger = Color3.fromRGB(248, 113, 113),   -- Offline / Banned
+    info = Color3.fromRGB(56, 189, 248),      -- No-Key
+    warning = Color3.fromRGB(251, 191, 36),   -- Key Required
+    free = Color3.fromRGB(167, 139, 250),     -- Free-User
+    premium = Color3.fromRGB(250, 204, 21),   -- Premium / VIP
+    neutral = Color3.fromRGB(165, 174, 192),
+}
+
+-- Tebak warna dari teksnya. Bisa dioverride lewat Tone / Color pada badge.
+local function BadgeTone(text, fallback)
+    local key = string.lower(text)
+    key = string.gsub(key, "[%s_]+", "-")
+    if string.find(key, "offline", 1, true) or string.find(key, "banned", 1, true) then
+        return BADGE_TONES.danger
+    elseif string.find(key, "online", 1, true) then
+        return BADGE_TONES.success
+    elseif string.find(key, "no%-?key") or string.find(key, "keyless", 1, true) then
+        return BADGE_TONES.info
+    elseif string.find(key, "premium", 1, true) or string.find(key, "vip", 1, true)
+        or string.find(key, "lifetime", 1, true) or string.find(key, "elite", 1, true) then
+        return BADGE_TONES.premium
+    elseif string.find(key, "free", 1, true) then
+        return BADGE_TONES.free
+    elseif string.find(key, "key", 1, true) then
+        return BADGE_TONES.warning
+    end
+    return fallback or BADGE_TONES.neutral
+end
+
 -- Geometry -------------------------------------------------------------
 
 local WIDTH = 420
@@ -66,12 +100,17 @@ local AVATAR = 54
 local AVATAR_IMG = 44
 local AVATAR_MARGIN = 10
 
-local INFO_X = 82
-local INFO_BOX = 15
-local INFO_GAP = 2
-local INFO_TITLE = 13
-local INFO_LABEL_W = 64
-local INFO_SIZE = 11
+local INFO_X = 76          -- jarak kiri blok info (rapat ke avatar)
+local INFO_GAP = 4          -- jarak antar baris di dalam pill bawah
+local INFO_NAME_H = 18      -- baris username (bold, besar)
+local INFO_NAME_SIZE = 15
+local INFO_ID_H = 14        -- baris ID (kecil, di bawah username)
+local INFO_ID_SIZE = 11
+
+local CHIP_H = 20           -- tinggi badge status (Online / No-Key / Free-User)
+local CHIP_SIZE = 11
+local CHIP_PAD = 7
+local CHIP_GAP = 5
 
 local DISCORD_W = 112
 local DISCORD_H = 42
@@ -2371,9 +2410,12 @@ function Library:CreateWindow(cfg)
         Position = UDim2.fromOffset(INFO_X, 0),
         Size = UDim2.new(1, -(INFO_X + (discord and (DISCORD_W + DISCORD_MARGIN + 12) or CONTENT_X)), 1, 0),
         BackgroundTransparency = 1,
+        ClipsDescendants = true,  -- badge berlebih terpotong rapi, tidak menimpa tombol Discord
         ZIndex = 3,
         Parent = bar,
     })
+    -- 2px: outline badge digambar di luar tepinya, tanpa ruang ini sisi kiri ikut terpotong clip.
+    New("UIPadding", { PaddingLeft = UDim.new(0, 2), Parent = info })
     New("UIListLayout", {
         Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -2381,54 +2423,213 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
+    -- Judul kecil opsional: tersembunyi kecuali cfg.StatusTitle / SetStatus({ Title = ... }).
     local statusTitle = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, INFO_BOX),
+        Size = UDim2.new(1, 0, 0, 12),
         Weight = "Bold",
-        Text = "USER STATUS",
-        TextSize = INFO_TITLE,
+        Text = cfg.StatusTitle and tostring(cfg.StatusTitle) or "",
+        TextSize = 10,
+        TextColor3 = Theme.TextTertiary,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Visible = cfg.StatusTitle ~= nil and cfg.StatusTitle ~= "",
+        Parent = info,
+    })
+
+    -- Baris 1: username, bold & besar sebagai fokus utama.
+    local statusName = Label({
+        LayoutOrder = 2,
+        Size = UDim2.new(1, 0, 0, INFO_NAME_H),
+        Weight = "Bold",
+        Text = tostring(cfg.Username or LocalPlayer.Name),
+        TextSize = INFO_NAME_SIZE,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = info,
     })
-    New("Frame", {
-        Name = "Spacer",
-        LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 2),
+
+    -- Baris 2: "ID  123456". Label & nilai dirapatkan (autosize), bukan kolom lebar tetap
+    -- 64px seperti dulu yang bikin "ID:" terlihat jauh dari nilainya.
+    local idRow = New("Frame", {
+        Name = "ID",
+        LayoutOrder = 3,
+        Size = UDim2.new(1, 0, 0, INFO_ID_H),
         BackgroundTransparency = 1,
         Parent = info,
     })
+    New("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Parent = idRow,
+    })
+    Label({
+        LayoutOrder = 1,
+        Size = UDim2.new(0, 0, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "SemiBold",
+        Text = "ID",
+        TextSize = INFO_ID_SIZE,
+        TextColor3 = Theme.TextTertiary,
+        Parent = idRow,
+    })
+    local statusId = Label({
+        LayoutOrder = 2,
+        Size = UDim2.new(0, 0, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "SemiBold",
+        Text = tostring(cfg.UserId or LocalPlayer.UserId),
+        TextSize = INFO_ID_SIZE,
+        TextColor3 = Theme.TextSecondary,
+        Parent = idRow,
+    })
 
-    local function InfoRow(order, name, value)
-        local row = New("Frame", {
-            Name = name,
+    -- Baris 3: badge status berbentuk pill transparan & terang.
+    local chips = New("Frame", {
+        Name = "Badges",
+        LayoutOrder = 4,
+        Size = UDim2.new(1, 0, 0, CHIP_H),
+        BackgroundTransparency = 1,
+        Parent = info,
+    })
+    New("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, CHIP_GAP),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Parent = chips,
+    })
+
+    local badgeTweens = {}
+
+    local function clearBadges()
+        for _, tween in ipairs(badgeTweens) do
+            pcall(function()
+                tween:Cancel()
+            end)
+        end
+        table.clear(badgeTweens)
+        for _, child in ipairs(chips:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+    end
+
+    -- spec: "Online"  atau  { Text = "Online", Tone = "success" | Color = Color3, Dot = true }
+    local function addBadge(order, spec)
+        if type(spec) ~= "table" then
+            spec = { Text = spec }
+        end
+        local text = tostring(spec.Text or spec[1] or "")
+        if text == "" then
+            return
+        end
+
+        local tone = spec.Color
+        if typeof(tone) ~= "Color3" then
+            tone = spec.Tone and BADGE_TONES[string.lower(tostring(spec.Tone))] or BadgeTone(text, accents.top)
+        end
+        local bright = tone:Lerp(Color3.new(1, 1, 1), 0.3)
+
+        local dotted = spec.Dot
+        if dotted == nil then
+            local lowered = string.lower(text)
+            dotted = lowered == "online" or lowered == "offline"
+        end
+
+        local chip = New("Frame", {
+            Name = "Badge",
             LayoutOrder = order,
-            Size = UDim2.new(1, 0, 0, INFO_BOX),
-            BackgroundTransparency = 1,
-            Parent = info,
+            AutomaticSize = Enum.AutomaticSize.X,
+            Size = UDim2.fromOffset(0, CHIP_H),
+            BackgroundColor3 = tone,
+            BackgroundTransparency = 0.8,   -- kaca transparan
+            ZIndex = 4,
+            Parent = chips,
         })
+        Round(chip, CHIP_H / 2)
+        New("UIStroke", {
+            Color = tone,
+            Thickness = 1,
+            Transparency = 0.3,             -- outline terang
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = chip,
+        })
+        New("UIPadding", {
+            PaddingLeft = UDim.new(0, CHIP_PAD),
+            PaddingRight = UDim.new(0, CHIP_PAD),
+            Parent = chip,
+        })
+        New("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Parent = chip,
+        })
+
+        if dotted then
+            local dot = New("Frame", {
+                LayoutOrder = 1,
+                Size = UDim2.fromOffset(6, 6),
+                BackgroundColor3 = tone,
+                ZIndex = 5,
+                Parent = chip,
+            })
+            Round(dot, 3)
+            local pulse = TweenService:Create(
+                dot,
+                TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+                { BackgroundTransparency = 0.65 }
+            )
+            pulse:Play()
+            table.insert(badgeTweens, pulse)
+        end
+
         Label({
-            Size = UDim2.new(0, INFO_LABEL_W, 1, 0),
-            Weight = "Medium",
-            Text = name .. ":",
-            TextSize = INFO_SIZE,
-            TextColor3 = Theme.TextTertiary,
-            Parent = row,
-        })
-        return Label({
-            Position = UDim2.fromOffset(INFO_LABEL_W, 0),
-            Size = UDim2.new(1, -INFO_LABEL_W, 1, 0),
-            Text = tostring(value),
-            TextSize = INFO_SIZE,
-            TextColor3 = Theme.Text,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            Parent = row,
+            LayoutOrder = 2,
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            Weight = "SemiBold",
+            Text = text,
+            TextSize = CHIP_SIZE,
+            TextColor3 = bright,
+            ZIndex = 5,
+            Parent = chip,
         })
     end
 
-    local statusName = InfoRow(3, "Username", cfg.Username or LocalPlayer.Name)
-    local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
-    local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
+    -- Default: Online - No-Key - Free-User. Bisa diganti lewat cfg.Online / cfg.Key / cfg.Tier,
+    -- atau cfg.Badges = { "Online", { Text = "VIP", Tone = "premium" } } untuk daftar bebas.
+    -- cfg.Status (lama) otomatis dipakai sebagai badge Key.
+    local badgeState = {
+        Badges = cfg.Badges,
+        Online = cfg.Online,
+        Key = cfg.Key or cfg.Status,
+        Tier = cfg.Tier or cfg.User,
+    }
+
+    local function renderBadges()
+        clearBadges()
+        local list = badgeState.Badges
+        if type(list) ~= "table" then
+            local online = badgeState.Online
+            if online == nil then
+                online = true
+            end
+            list = {
+                type(online) == "string" and online or (online and "Online" or "Offline"),
+                badgeState.Key or "No-Key",
+                badgeState.Tier or "Free-User",
+            }
+        end
+        for index, spec in ipairs(list) do
+            addBadge(index, spec)
+        end
+    end
+    renderBadges()
 
     -- Discord pill ------------------------------------------------------
 
@@ -2630,6 +2831,11 @@ function Library:CreateWindow(cfg)
         pcall(function()
             haloTween:Cancel()
         end)
+        for _, tween in ipairs(badgeTweens) do
+            pcall(function()
+                tween:Cancel()
+            end)
+        end
         for _, connection in ipairs(connections) do
             connection:Disconnect()
         end
@@ -2645,12 +2851,43 @@ function Library:CreateWindow(cfg)
         if statusCfg.UserId then
             statusId.Text = tostring(statusCfg.UserId)
         end
-        if statusCfg.Status then
-            statusLine.Text = tostring(statusCfg.Status)
-        end
         if statusCfg.Title then
             statusTitle.Text = tostring(statusCfg.Title)
+            statusTitle.Visible = statusCfg.Title ~= ""
         end
+
+        -- Badges memakai daftar bebas; Online / Key / Tier (atau Status lama) mengubah badge bawaan.
+        local changed = false
+        if statusCfg.Badges ~= nil then
+            badgeState.Badges = statusCfg.Badges
+            changed = true
+        end
+        local fieldGiven = false
+        if statusCfg.Online ~= nil then
+            badgeState.Online = statusCfg.Online
+            fieldGiven = true
+        end
+        if statusCfg.Key or statusCfg.Status then
+            badgeState.Key = statusCfg.Key or statusCfg.Status
+            fieldGiven = true
+        end
+        if statusCfg.Tier or statusCfg.User then
+            badgeState.Tier = statusCfg.Tier or statusCfg.User
+            fieldGiven = true
+        end
+        if fieldGiven then
+            if statusCfg.Badges == nil then
+                badgeState.Badges = nil
+            end
+            changed = true
+        end
+        if changed then
+            renderBadges()
+        end
+    end
+
+    function window:SetBadges(list)
+        window:SetStatus({ Badges = list or {} })
     end
 
     launcher.Activated:Connect(function()
