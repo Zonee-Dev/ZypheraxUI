@@ -2542,13 +2542,14 @@ function Library:CreateWindow(cfg)
     local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
 
     local STRIP_H = 30
+    local STRIP_INSET = 1  -- tab strip digeser masuk 1px supaya UIStroke (digambar di luar tepi) tidak terpotong clip `content`
     local SCROLL_PAD = 3
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
     local IND_H = 3
     local IND_W = 44
-    local IND_Y = STRIP_H + 3
+    local IND_Y = STRIP_INSET + STRIP_H + 3
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
@@ -2566,7 +2567,7 @@ function Library:CreateWindow(cfg)
         local visibleInd = viewCenter > 0 and viewCenter < viewportW
         local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewportW - IND_W, 0))
         tabIndicator.Visible = visibleInd
-        local goal = UDim2.fromOffset(SCROLL_PAD + x, IND_Y)
+        local goal = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + x, IND_Y)
         if animate then
             Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
         else
@@ -2616,13 +2617,22 @@ function Library:CreateWindow(cfg)
     local function buildTabStrip()
         tabStrip = New("Frame", {
             Name = "TabStrip",
-            Size = UDim2.new(1, 0, 0, STRIP_H),
+            Position = UDim2.fromOffset(STRIP_INSET, STRIP_INSET),
+            Size = UDim2.new(1, -STRIP_INSET * 2, 0, STRIP_H),
             BackgroundColor3 = Theme.Inset,
             ClipsDescendants = true,
             LayoutOrder = 0,
             Parent = content,
         })
         Round(tabStrip, STRIP_H / 2)
+        -- outline sama persis dengan pill search (idle): 1px Theme.Border
+        New("UIStroke", {
+            Name = "Outline",
+            Color = Theme.Border,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = tabStrip,
+        })
 
         tabScroll = New("ScrollingFrame", {
             Name = "TabScroll",
@@ -2687,7 +2697,7 @@ function Library:CreateWindow(cfg)
 
         tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
-            Position = UDim2.fromOffset(SCROLL_PAD, IND_Y),
+            Position = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD, IND_Y),
             Size = UDim2.fromOffset(IND_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
@@ -2706,8 +2716,8 @@ function Library:CreateWindow(cfg)
 
         pagesHolder = New("Frame", {
             Name = "Pages",
-            Position = UDim2.fromOffset(0, STRIP_H + 10),
-            Size = UDim2.new(1, 0, 1, -(STRIP_H + 10)),
+            Position = UDim2.fromOffset(0, STRIP_INSET + STRIP_H + 10),
+            Size = UDim2.new(1, 0, 1, -(STRIP_INSET + STRIP_H + 10)),
             BackgroundTransparency = 1,
             ClipsDescendants = true,
             LayoutOrder = 1,
