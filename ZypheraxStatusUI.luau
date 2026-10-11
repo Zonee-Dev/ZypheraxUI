@@ -910,23 +910,47 @@ local function BuildItems(page, accents, ctx)
             Parent = row,
         })
         Round(track, 10)
+
+        -- Lapisan gradient biru untuk posisi ON. Dasarnya WAJIB putih (UIGradient dikalikan
+        -- dengan BackgroundColor3), dan ON/OFF dilakukan lewat transparansi, bukan warna,
+        -- supaya track abu-abu tetap bersih dan transisinya memudar halus.
+        local onFill = New("Frame", {
+            Name = "OnFill",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundTransparency = 1,
+            ZIndex = 1,
+            Parent = track,
+        })
+        Round(onFill, 10)
+        New("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, accents.top),
+                ColorSequenceKeypoint.new(0.5, accents.mid),
+                ColorSequenceKeypoint.new(1, accents.mid:Lerp(accents.bottom, 0.5)),
+            }),
+            Rotation = 90,
+            Parent = onFill,
+        })
+
         local knob = New("Frame", {
             AnchorPoint = Vector2.new(0, 0.5),
             Position = UDim2.new(0, 3, 0.5, 0),
             Size = UDim2.fromOffset(14, 14),
             BackgroundColor3 = Theme.White,
+            ZIndex = 2,
             Parent = track,
         })
         Round(knob, 7)
 
         local function render(animate)
-            local trackColor = obj.Value and accents.fill or Theme.Track
+            local fillTransparency = obj.Value and 0 or 1
             local knobPos = UDim2.new(0, obj.Value and 19 or 3, 0.5, 0)
             if animate then
-                Tween(track, 0.16, { BackgroundColor3 = trackColor })
+                Tween(onFill, 0.16, { BackgroundTransparency = fillTransparency })
                 Tween(knob, 0.18, { Position = knobPos }, Enum.EasingStyle.Quint)
             else
-                track.BackgroundColor3 = trackColor
+                onFill.BackgroundTransparency = fillTransparency
                 knob.Position = knobPos
             end
         end
