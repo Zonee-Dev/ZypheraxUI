@@ -392,20 +392,65 @@ local function Glyph(parent, name, color, size)
             return part
         end
 
+        -- Panah & centang digambar dengan "stempel" lingkaran kecil yang berderet rapat
+        -- sepanjang garis (polyline), BUKAN dua batang tipis yang diputar 45 derajat.
+        -- Batang tipis yang diputar dirender tanpa anti-alias dan sering jatuh di setengah
+        -- piksel (apalagi saat UIScale != 1), sehingga ujung & sudutnya terlihat terpotong.
+        -- Lingkaran UICorner selalu halus, ujungnya bulat sempurna, dan tidak bergantung rotasi.
+        local THICK = 2
+
+        local function dot(x, y)
+            local part = New("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(0.5, x, 0.5, y),
+                Size = UDim2.fromOffset(THICK, THICK),
+                BackgroundColor3 = color,
+                Parent = holder,
+            })
+            Round(part, THICK / 2)
+            table.insert(parts, part)
+        end
+
+        local function polyline(points)
+            for i = 1, #points - 1 do
+                local a, b = points[i], points[i + 1]
+                local dx, dy = b[1] - a[1], b[2] - a[2]
+                local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / (THICK * 0.45)))
+                for step = (i == 1) and 0 or 1, steps do
+                    local t = step / steps
+                    dot(a[1] + dx * t, a[2] + dy * t)
+                end
+            end
+        end
+
+        -- panah bentuk V; (ux, uy) = arah ujung. Tip digeser setengah jangkauan agar V tepat di tengah holder.
+        local function vee(ux, uy)
+            local w = size * 0.30   -- jangkauan horizontal/vertikal tiap lengan
+            local tipX, tipY = ux * w / 2, uy * w / 2
+            polyline({
+                { tipX + (-ux + uy) * w, tipY + (-ux - uy) * w },
+                { tipX, tipY },
+                { tipX + (-ux - uy) * w, tipY + (ux - uy) * w },
+            })
+        end
+
         if name == "chevron" then
-            bar(size * 0.44, 2, 45, -size * 0.02, -size * 0.16)
-            bar(size * 0.44, 2, -45, -size * 0.02, size * 0.16)
+            vee(1, 0)
         elseif name == "chevronDown" then
-            bar(size * 0.44, 2, 45, -size * 0.16, -size * 0.02)
-            bar(size * 0.44, 2, -45, size * 0.16, -size * 0.02)
+            vee(0, 1)
         elseif name == "close" then
             bar(size * 0.7, 2, 45, 0, 0)
             bar(size * 0.7, 2, -45, 0, 0)
         elseif name == "minimize" then
             bar(size * 0.62, 2, 0, 0, 0)
         elseif name == "check" then
-            bar(size * 0.32, 2, 45, -size * 0.16, size * 0.06)
-            bar(size * 0.56, 2, -45, size * 0.1, -size * 0.06)
+            -- lengan pendek ke kiri-atas, lengan panjang ke kanan-atas, tip di kiri-bawah;
+            -- tip digeser agar centang tepat di tengah holder
+            polyline({
+                { -size * 0.30, 0 },
+                { -size * 0.10, size * 0.20 },
+                { size * 0.30, -size * 0.20 },
+            })
         elseif name == "maximize" then
             ring(size * 0.62, size * 0.62, 2, 2, 0, 0)
         elseif name == "search" then
@@ -923,13 +968,15 @@ local function BuildItems(page, accents, ctx)
             Parent = track,
         })
         Round(onFill, 10)
+        -- Gradient diagonal & kontras jelas (biru muda -> biru royal -> biru tua). Dulu vertikal
+        -- di track setinggi 20px sehingga selisih warnanya nyaris tak terlihat (tampak flat).
         New("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, accents.top),
-                ColorSequenceKeypoint.new(0.5, accents.mid),
-                ColorSequenceKeypoint.new(1, accents.mid:Lerp(accents.bottom, 0.5)),
+                ColorSequenceKeypoint.new(0, accents.top:Lerp(Color3.new(1, 1, 1), 0.12)),
+                ColorSequenceKeypoint.new(0.5, accents.top:Lerp(accents.mid, 0.55)),
+                ColorSequenceKeypoint.new(1, accents.mid:Lerp(accents.bottom, 0.55)),
             }),
-            Rotation = 90,
+            Rotation = 20,
             Parent = onFill,
         })
 
@@ -1150,9 +1197,17 @@ local function BuildItems(page, accents, ctx)
             TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = row,
         })
-        local arrow, arrowPaint = Glyph(row, "chevronDown", Theme.TextTertiary, 14)
-        arrow.AnchorPoint = Vector2.new(1, 0.5)
-        arrow.Position = UDim2.new(1, -12, 0.5, 0)
+        -- Rotasi GuiObject berpusat di AnchorPoint. Dulu holder panah di-anchor (1, 0.5) lalu
+        -- diputar 180 derajat, jadi panah "berayun" ke kanan hingga menabrak tepi baris dan
+        -- terpotong. Sekarang glyph (anchor tengah) ditaruh di wadah tetap, jadi berputar di tempat.
+        local arrowWrap = New("Frame", {
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -12, 0.5, 0),
+            Size = UDim2.fromOffset(14, 14),
+            BackgroundTransparency = 1,
+            Parent = row,
+        })
+        local arrow, arrowPaint = Glyph(arrowWrap, "chevronDown", Theme.TextTertiary, 14)
 
         local list = New("Frame", {
             Position = UDim2.new(0, 4, 1, 2),
@@ -1229,7 +1284,7 @@ local function BuildItems(page, accents, ctx)
                     Parent = entry,
                 })
                 if selected then
-                    local mark = Glyph(entry, "check", accents.top, 12)
+                    local mark = Glyph(entry, "check", accents.top, 14)
                     mark.AnchorPoint = Vector2.new(1, 0.5)
                     mark.Position = UDim2.new(1, -8, 0.5, 0)
                 end
@@ -1300,13 +1355,22 @@ local function BuildItems(page, accents, ctx)
             Parent = row,
         })
         Round(pill, 6)
-        local pillStroke = New("UIStroke", { Color = Theme.Border, Thickness = 1, Parent = pill })
+        -- ApplyStrokeMode WAJIB Border: di TextButton/TextBox mode bawaan (Contextual) menggambar
+        -- outline pada TEKS, bukan tepi shape, sehingga shape tak punya garis tepi.
+        local pillStroke = New("UIStroke", {
+            Color = Theme.Border,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = pill,
+        })
         local keyLabel = Label({
-            Size = UDim2.fromScale(1, 1),
+            Position = UDim2.fromOffset(4, 0),
+            Size = UDim2.new(1, -8, 1, 0),
             Weight = "Medium",
             TextSize = 11,
             TextColor3 = Theme.TextSecondary,
             TextXAlignment = Enum.TextXAlignment.Center,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = pill,
         })
 
@@ -1378,32 +1442,68 @@ local function BuildItems(page, accents, ctx)
         local row = Row(38)
         Titles(row, title, nil, 150)
 
-        local box = New("TextBox", {
+        -- Shape (frame) dipisah dari TextBox. Shape yang memegang warna, sudut, outline, dan
+        -- ClipsDescendants; TextBox transparan di dalamnya dengan padding kiri-kanan. Dengan begini
+        -- teks (URL webhook yang panjang, placeholder, kursor) TIDAK bisa keluar dari shape.
+        local boxFrame = New("Frame", {
+            Name = "InputShape",
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(140, 24),
+            Size = UDim2.fromOffset(150, 26),
             BackgroundColor3 = Theme.Inset,
+            ClipsDescendants = true,
+            Parent = row,
+        })
+        Round(boxFrame, 7)
+        -- Border: outline digambar di tepi frame (bukan di teks).
+        local boxStroke = New("UIStroke", {
+            Color = Theme.Border,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = boxFrame,
+        })
+
+        local box = New("TextBox", {
+            Name = "Input",
+            Position = UDim2.fromOffset(9, 0),
+            Size = UDim2.new(1, -18, 1, 0),
+            BackgroundTransparency = 1,
             TextColor3 = Theme.Text,
             PlaceholderText = placeholder,
             PlaceholderColor3 = Theme.TextTertiary,
             FontFace = Typo.Regular,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ClipsDescendants = true,
             ClearTextOnFocus = false,
             Text = default,
-            Parent = row,
+            Parent = boxFrame,
         })
-        Round(box, 6)
-        local boxStroke = New("UIStroke", { Color = Theme.Border, Thickness = 1, Parent = box })
-        New("UIPadding", { PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9), Parent = box })
 
+        local focused = false
         box.Focused:Connect(function()
-            boxStroke.Color = accents.top
+            focused = true
+            box.TextTruncate = Enum.TextTruncate.None   -- saat mengetik, teks scroll mengikuti kursor
+            Tween(boxStroke, 0.12, { Color = accents.top })
         end)
         box.FocusLost:Connect(function()
-            boxStroke.Color = Theme.Border
+            focused = false
+            box.TextTruncate = Enum.TextTruncate.AtEnd  -- saat tidak fokus, teks panjang jadi "..."
+            Tween(boxStroke, 0.12, { Color = Theme.Border })
             obj.Value = box.Text
             task.spawn(callback, box.Text)
+        end)
+        boxFrame.MouseEnter:Connect(function()
+            if not focused then
+                Tween(boxStroke, 0.12, { Color = Theme.BorderStrong })
+            end
+        end)
+        boxFrame.MouseLeave:Connect(function()
+            if not focused then
+                Tween(boxStroke, 0.12, { Color = Theme.Border })
+            end
         end)
 
         function obj:Set(text, silent)
@@ -1439,7 +1539,12 @@ local function BuildItems(page, accents, ctx)
             Parent = row,
         })
         Round(swatch, 7)
-        New("UIStroke", { Color = Theme.BorderStrong, Thickness = 1, Parent = swatch })
+        New("UIStroke", {
+            Color = Theme.BorderStrong,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = swatch,
+        })
 
         local panelOpen = false
         local panel = New("Frame", {
@@ -1842,6 +1947,7 @@ function Library:CreateWindow(cfg)
         Position = UDim2.fromOffset(HEADER_MARGIN, HEADER_Y),
         Size = UDim2.fromOffset(SEARCH_W, HEADER_H),
         BackgroundColor3 = Theme.Inset,
+        ClipsDescendants = true,
         ZIndex = 5,
         Parent = panel,
     })
@@ -1869,6 +1975,7 @@ function Library:CreateWindow(cfg)
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
+        ClipsDescendants = true,
         ClearTextOnFocus = false,
         ZIndex = 6,
         Parent = searchFrame,
