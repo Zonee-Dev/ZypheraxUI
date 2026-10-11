@@ -697,6 +697,8 @@ end
 
 -- Row controls -----------------------------------------------------------
 
+local ROW_RADIUS = 10  -- radius seragam untuk kotak fitur, dropdown, dan paragraph
+
 local function BuildItems(page, accents, ctx)
     local items, order = {}, 0
 
@@ -712,11 +714,13 @@ local function BuildItems(page, accents, ctx)
             LayoutOrder = nextOrder(),
             Parent = page,
         })
-        Round(row, 8)
+        Round(row, ROW_RADIUS)
+        -- Outline penuh (tidak transparan): stroke transparan 0.4 di atas panel gelap
+        -- hampir sama dengan warna isi baris, sehingga tepi & corner terlihat kasar.
         New("UIStroke", {
+            Name = "Outline",
             Color = Theme.Border,
             Thickness = 1,
-            Transparency = 0.4,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = row,
         })
@@ -759,11 +763,18 @@ local function BuildItems(page, accents, ctx)
             AutoButtonColor = false,
             Parent = row,
         })
+        local outline = row:FindFirstChild("Outline")
         hit.MouseEnter:Connect(function()
             Tween(row, 0.12, { BackgroundColor3 = Theme.Hover })
+            if outline then
+                Tween(outline, 0.12, { Color = Theme.BorderStrong })
+            end
         end)
         hit.MouseLeave:Connect(function()
             Tween(row, 0.12, { BackgroundColor3 = leaveColor or Theme.Raised })
+            if outline then
+                Tween(outline, 0.12, { Color = Theme.Border })
+            end
         end)
         hit.MouseButton1Down:Connect(function()
             Tween(row, 0.06, { BackgroundColor3 = Theme.Pressed })
@@ -776,7 +787,7 @@ local function BuildItems(page, accents, ctx)
 
     function items:AddSection(title)
         local wrap = New("Frame", {
-            Size = UDim2.new(1, 0, 0, 22),
+            Size = UDim2.new(1, 0, 0, 28),
             LayoutOrder = nextOrder(),
             BackgroundTransparency = 1,
             Parent = page,
@@ -785,10 +796,10 @@ local function BuildItems(page, accents, ctx)
             Position = UDim2.fromOffset(2, 0),
             Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X,
-            Weight = "SemiBold",
+            Weight = "Bold",
             Text = string.upper(title or ""),
-            TextSize = 10,
-            TextColor3 = Theme.TextTertiary,
+            TextSize = 14,
+            TextColor3 = Theme.TextSecondary,
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = wrap,
         })
@@ -810,11 +821,16 @@ local function BuildItems(page, accents, ctx)
             Rotation = 0,
             Parent = divider,
         })
-        heading:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-            local width = heading.AbsoluteSize.X + 12
+        -- AbsoluteSize berada di satuan layar, sedangkan Position/Size divider di satuan lokal
+        -- (di dalam UIScale), jadi dibagi skala dulu supaya jarak judul-garis tetap 12px.
+        local function placeDivider()
+            local scale = ctx.uiScale and math.max(ctx.uiScale.Scale, 0.01) or 1
+            local width = heading.AbsoluteSize.X / scale + 12
             divider.Position = UDim2.new(0, width, 0.5, 0)
             divider.Size = UDim2.new(1, -width, 0, 2)
-        end)
+        end
+        heading:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeDivider)
+        task.defer(placeDivider)
         return self
     end
 
@@ -1119,8 +1135,8 @@ local function BuildItems(page, accents, ctx)
             Parent = page,
         })
         list:SetAttribute("SearchTitle", string.lower(title))
-        Round(list, 8)
-        New("UIStroke", { Color = Theme.Border, Thickness = 1, Transparency = 0.3, Parent = list })
+        Round(list, ROW_RADIUS)
+        New("UIStroke", { Color = Theme.Border, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = list })
         local scroll = New("ScrollingFrame", {
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
@@ -1598,7 +1614,7 @@ local function BuildItems(page, accents, ctx)
             LayoutOrder = nextOrder(),
             Parent = page,
         })
-        Round(wrap, 8)
+        Round(wrap, ROW_RADIUS)
         New("UIPadding", {
             PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10),
             PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12),
@@ -2551,6 +2567,64 @@ function Library:CreateWindow(cfg)
     local IND_W = 44
     local IND_Y = STRIP_INSET + STRIP_H + 3
 
+    -- Fade tepi atas/bawah area page ------------------------------------------
+    -- Baris yang tergulir tidak lagi terpotong lurus di tepi area: ia memudar ke warna
+    -- panel. Fade atas hanya muncul kalau ada konten di atas, fade bawah kalau ada di
+    -- bawah. Set PAGE_EDGE_FADE = 0 untuk mematikan.
+    local PAGE_EDGE_FADE = 14
+    local PAGE_FADE_RIGHT = 14  -- sisakan jalur scrollbar di kanan supaya thumb tidak tertutup
+    local fadeTop, fadeBottom
+
+    local function makeFade(name, transparency)
+        local frame = New("Frame", {
+            Name = name,
+            BackgroundColor3 = Theme.Surface,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -PAGE_FADE_RIGHT, 0, PAGE_EDGE_FADE),
+            ZIndex = 8,
+            Parent = content,
+        })
+        New("UIGradient", { Rotation = 90, Transparency = transparency, Parent = frame })
+        return frame
+    end
+
+    local function updateFades()
+        if PAGE_EDGE_FADE <= 0 then
+            return
+        end
+        if not fadeTop then
+            fadeTop = makeFade("FadeTop", NumberSequence.new(0, 1))
+            fadeBottom = makeFade("FadeBottom", NumberSequence.new(1, 0))
+        end
+
+        -- area page: di bawah tab strip kalau ada, kalau tidak seluruh content (satuan lokal)
+        local areaTop = tabStrip and (STRIP_INSET + STRIP_H + 10) or 0
+        local areaH = (CARD_H - CONTENT_TOP - CONTENT_BOTTOM) - areaTop
+        fadeTop.Position = UDim2.fromOffset(0, areaTop)
+        fadeBottom.Position = UDim2.fromOffset(0, areaTop + areaH - PAGE_EDGE_FADE)
+        -- warna isi panel pada ketinggian tsb (koordinat panel = CONTENT_TOP + y lokal)
+        fadeTop.BackgroundColor3 = fillAt(CONTENT_TOP + areaTop)
+        fadeBottom.BackgroundColor3 = fillAt(CONTENT_TOP + areaTop + areaH)
+
+        local topAlpha, bottomAlpha = 0, 0
+        local page = selectedTab and selectedTab.Page
+        if page and page.Visible then
+            local s = math.max(uiScale.Scale, 0.01)
+            local maxScroll = (page.AbsoluteCanvasSize.Y - page.AbsoluteWindowSize.Y) / s
+            if maxScroll > 1 then
+                local y = page.CanvasPosition.Y
+                topAlpha = math.clamp(y / PAGE_EDGE_FADE, 0, 1)
+                bottomAlpha = math.clamp((maxScroll - y) / PAGE_EDGE_FADE, 0, 1)
+            end
+        end
+        fadeTop.BackgroundTransparency = 1 - topAlpha
+        fadeBottom.BackgroundTransparency = 1 - bottomAlpha
+    end
+
+    table.insert(connections, uiScale:GetPropertyChangedSignal("Scale"):Connect(function()
+        task.defer(updateFades)
+    end))
+
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then
             return
@@ -2611,6 +2685,7 @@ function Library:CreateWindow(cfg)
         end
         layoutThumb(animate)
         updatePageScroll()
+        updateFades()
         applySearch()
     end
 
@@ -2734,6 +2809,7 @@ function Library:CreateWindow(cfg)
         pageScrollTrack.Parent = pagesHolder
 
         layoutIndicator(false)
+        updateFades()  -- area page bergeser ke bawah strip
     end
 
     local function makeTabButton(tab)
@@ -2806,12 +2882,24 @@ function Library:CreateWindow(cfg)
         })
         HideScrollBar(page)
         New("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
-        New("UIPadding", { PaddingRight = UDim.new(0, PAGE_SCROLL_PAD + PAGE_BAR_CLIP), Parent = page })
+        -- Padding kiri/atas/bawah 2px: stroke baris digambar di luar tepinya, dan ScrollingFrame
+        -- memotong semua yang keluar dari batasnya, jadi tanpa ruang ini outline kiri & atas terpangkas.
+        New("UIPadding", {
+            PaddingLeft = UDim.new(0, 2),
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2),
+            PaddingRight = UDim.new(0, PAGE_SCROLL_PAD + PAGE_BAR_CLIP),
+            Parent = page,
+        })
 
         page:GetPropertyChangedSignal("CanvasPosition"):Connect(updatePageScroll)
         page:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updatePageScroll)
         page:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updatePageScroll)
         page:GetPropertyChangedSignal("Visible"):Connect(updatePageScroll)
+        page:GetPropertyChangedSignal("CanvasPosition"):Connect(updateFades)
+        page:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updateFades)
+        page:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updateFades)
+        page:GetPropertyChangedSignal("Visible"):Connect(updateFades)
 
         local tab = { Page = page, Active = false, Name = name, Order = #tabs + 1 }
         table.insert(tabs, tab)
@@ -2826,12 +2914,13 @@ function Library:CreateWindow(cfg)
             layoutThumb(false)
         end
 
-        return BuildItems(page, accents, { root = root })
+        return BuildItems(page, accents, { root = root, uiScale = uiScale })
     end
     window.CreateTab = window.AddTab
 
     window:SetVisible(true)
     task.defer(updatePageScroll)
+    task.defer(updateFades)
     table.insert(Library.Windows, window)
     window.Gui = gui
     return window
