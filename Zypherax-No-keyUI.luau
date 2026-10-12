@@ -6,6 +6,12 @@ local CoreGui = game:GetService("CoreGui")
 local TextService = game:GetService("TextService")
 
 local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    pcall(function()
+        Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    end)
+    LocalPlayer = Players.LocalPlayer
+end
 
 local DEFAULT_LOGO = "rbxassetid://106764279090045"
 
@@ -51,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 78
+local BAR_H = 90
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
@@ -66,16 +72,16 @@ local AVATAR = 54
 local AVATAR_IMG = 44
 local AVATAR_MARGIN = 10
 
-local INFO_X = 82
+local INFO_X = 74
 local INFO_BOX = 15
-local INFO_GAP = 2
+local INFO_GAP = 3
 local INFO_TITLE = 13
-local INFO_LABEL_W = 64
+local INFO_LABEL_W = 56
 local INFO_SIZE = 11
 
-local DISCORD_W = 112
-local DISCORD_H = 42
-local DISCORD_MARGIN = 16
+local DISCORD_W = 100
+local DISCORD_H = 36
+local DISCORD_MARGIN = 12
 
 local CONTENT_X = 16
 local CONTENT_TOP = NOTCH_R + 12
@@ -112,6 +118,7 @@ local BLACKS = {
 }
 
 local Library = {
+    Version = "v4.0.0",
     Unloaded = false,
     Windows = {},
     Icons = {
@@ -316,21 +323,18 @@ local function ResolveParent()
         end
     end
     local ok, core = pcall(function()
-        return CoreGui
+        return cloneref and cloneref(CoreGui) or CoreGui
     end)
     if ok and core then
-        local ok2, roblox = pcall(function()
-            return core:WaitForChild("RobloxGui")
-        end)
-        if ok2 and roblox then
-            return roblox
-        end
+        return core
     end
-    return LocalPlayer:WaitForChild("PlayerGui")
+    local lp = LocalPlayer or Players.LocalPlayer or Players.PlayerAdded:Wait()
+    return lp:WaitForChild("PlayerGui")
 end
 
 local function ViewportScale()
-    local viewport = Workspace.CurrentCamera.ViewportSize
+    local cam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+    local viewport = cam and cam.ViewportSize or Vector2.new(1920, 1080)
     return math.clamp(math.min(viewport.X / (WIDTH + 120), viewport.Y / (TOTAL_H + OVERHANG + 120)), 0.55, 1.15)
 end
 
@@ -2265,6 +2269,7 @@ function Library:CreateWindow(cfg)
     local bar = Fill(root.BarShell, "Bar", BAR_H / 2, Color3.new(1, 1, 1), 2)
     New("UIGradient", { Color = sampleGradient(barFillAt, 0, BAR_H), Rotation = 90, Parent = bar })
 
+    -- Avatar
     local avatarShell = New("Frame", {
         Name = "Avatar",
         AnchorPoint = Vector2.new(0, 0.5),
@@ -2307,6 +2312,30 @@ function Library:CreateWindow(cfg)
     })
     Round(avatar, (AVATAR - STROKE * 2) / 2)
 
+    -- Online dot (pulse)
+    local onlineDot = New("Frame", {
+        Name = "OnlineDot",
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -1, 1, -1),
+        Size = UDim2.fromOffset(12, 12),
+        BackgroundColor3 = Theme.Success,
+        ZIndex = 6,
+        Parent = avatarShell,
+    })
+    Round(onlineDot, 6)
+    New("UIStroke", {
+        Color = Color3.fromRGB(18, 18, 18),
+        Thickness = 2,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = onlineDot,
+    })
+    local dotPulse = TweenService:Create(
+        onlineDot,
+        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        { BackgroundColor3 = Theme.Success:Lerp(Color3.new(1, 1, 1), 0.35) }
+    )
+    dotPulse:Play()
+
     task.spawn(function()
         local ok, image = pcall(function()
             return Players:GetUserThumbnailAsync(
@@ -2320,10 +2349,12 @@ function Library:CreateWindow(cfg)
         end
     end)
 
+    -- Info block: kiri avatar, kanan Discord btn
+    local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
     local info = New("Frame", {
         Name = "Info",
         Position = UDim2.fromOffset(INFO_X, 0),
-        Size = UDim2.new(1, -(INFO_X + (discord and (DISCORD_W + DISCORD_MARGIN + 12) or CONTENT_X)), 1, 0),
+        Size = UDim2.new(1, -(INFO_X + infoRight), 1, 0),
         BackgroundTransparency = 1,
         ZIndex = 3,
         Parent = bar,
@@ -2335,54 +2366,123 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
-    local statusTitle = Label({
+    -- Baris 1: Username (bold, besar)
+    local usernameLabel = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, INFO_BOX),
+        Size = UDim2.new(1, 0, 0, 17),
         Weight = "Bold",
-        Text = "USER STATUS",
-        TextSize = INFO_TITLE,
+        Text = cfg.Username or LocalPlayer.Name,
+        TextSize = 14,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = info,
     })
-    New("Frame", {
-        Name = "Spacer",
+
+    -- Baris 2: @name · UserID  (kecil, tertiary)
+    local subLabel = Label({
         LayoutOrder = 2,
+        Size = UDim2.new(1, 0, 0, 13),
+        Weight = "Medium",
+        Text = "@" .. (cfg.Username or LocalPlayer.Name) .. "  ·  ID " .. tostring(cfg.UserId or LocalPlayer.UserId),
+        TextSize = 10,
+        TextColor3 = Theme.TextTertiary,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Parent = info,
+    })
+
+    -- Spacer tipis
+    New("Frame", {
+        LayoutOrder = 3,
         Size = UDim2.new(1, 0, 0, 2),
         BackgroundTransparency = 1,
         Parent = info,
     })
 
-    local function InfoRow(order, name, value)
-        local row = New("Frame", {
-            Name = name,
+    -- Baris 3: pill tags — Online, No-Key, Free-User
+    local pillRow = New("Frame", {
+        Name = "PillRow",
+        LayoutOrder = 4,
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        ClipsDescendants = false,
+        Parent = info,
+    })
+    New("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 5),
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = pillRow,
+    })
+
+    -- Helper: buat satu pill tag
+    local function MakeStatusPill(parent, order, text, fillColor)
+        local pill = New("Frame", {
+            Name = "Pill_" .. text,
             LayoutOrder = order,
-            Size = UDim2.new(1, 0, 0, INFO_BOX),
-            BackgroundTransparency = 1,
-            Parent = info,
+            Size = UDim2.fromOffset(0, 18),   -- lebar auto
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundColor3 = fillColor,
+            BackgroundTransparency = 0.72,
+            ZIndex = 4,
+            Parent = parent,
         })
-        Label({
-            Size = UDim2.new(0, INFO_LABEL_W, 1, 0),
-            Weight = "Medium",
-            Text = name .. ":",
-            TextSize = INFO_SIZE,
-            TextColor3 = Theme.TextTertiary,
-            Parent = row,
+        Round(pill, 9)
+        New("UIStroke", {
+            Color = fillColor,
+            Thickness = 1,
+            Transparency = 0.35,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = pill,
         })
-        return Label({
-            Position = UDim2.fromOffset(INFO_LABEL_W, 0),
-            Size = UDim2.new(1, -INFO_LABEL_W, 1, 0),
-            Text = tostring(value),
-            TextSize = INFO_SIZE,
-            TextColor3 = Theme.Text,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            Parent = row,
+        New("UIPadding", {
+            PaddingLeft = UDim.new(0, 7),
+            PaddingRight = UDim.new(0, 7),
+            Parent = pill,
         })
+        local lbl = Label({
+            Size = UDim2.new(1, 0, 1, 0),
+            Weight = "SemiBold",
+            Text = text,
+            TextSize = 10,
+            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 5,
+            Parent = pill,
+        })
+        return pill, lbl
     end
 
-    local statusName = InfoRow(3, "Username", cfg.Username or LocalPlayer.Name)
-    local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
-    local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
+    local PILL_ONLINE_COLOR  = Theme.Success                          -- hijau
+    local PILL_NOKEY_COLOR   = accents.top                            -- biru accent
+    local PILL_TIER_COLOR    = Color3.fromRGB(180, 140, 255)          -- ungu lembut (free user)
+
+    local pillOnline,  pillOnlineLabel  = MakeStatusPill(pillRow, 1, "● Online",   PILL_ONLINE_COLOR)
+    local pillNoKey,   pillNoKeyLabel   = MakeStatusPill(pillRow, 2, "No-Key",     PILL_NOKEY_COLOR)
+    local pillTier,    pillTierLabel    = MakeStatusPill(pillRow, 3, "Free-User",  PILL_TIER_COLOR)
+
+    -- Variabel internal untuk SetStatus
+    local _statusName = usernameLabel
+    local _statusSub  = subLabel
+    local _pillOnlineLabel  = pillOnlineLabel
+    local _pillNoKeyLabel   = pillNoKeyLabel
+    local _pillTierLabel    = pillTierLabel
+    local _pillOnline       = pillOnline
+    local _pillNoKey        = pillNoKey
+    local _pillTier         = pillTier
+
+    -- statusTitle & statusLine tetap ada untuk kompatibilitas SetStatus lama
+    local statusTitle = Label({
+        Size = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextSize = 1,
+        Visible = false,
+        Parent = bar,
+    })
+    local statusName   = usernameLabel
+    local statusId     = subLabel
+    local statusLine   = pillNoKeyLabel
 
     -- Discord pill ------------------------------------------------------
 
@@ -2419,8 +2519,8 @@ function Library:CreateWindow(cfg)
         if hasIcon then
             New("ImageLabel", {
                 AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.new(0, 16, 0.5, 0),
-                Size = UDim2.fromOffset(18, 18),
+                Position = UDim2.new(0, 12, 0.5, 0),
+                Size = UDim2.fromOffset(16, 16),
                 BackgroundTransparency = 1,
                 Image = iconAsset,
                 ImageColor3 = Color3.new(1, 1, 1),
@@ -2430,11 +2530,11 @@ function Library:CreateWindow(cfg)
             })
         end
         Label({
-            Position = UDim2.fromOffset(hasIcon and 34 or 0, 0),
-            Size = UDim2.new(1, hasIcon and -42 or 0, 1, 0),
+            Position = UDim2.fromOffset(hasIcon and 30 or 0, 0),
+            Size = UDim2.new(1, hasIcon and -36 or 0, 1, 0),
             Weight = "SemiBold",
             Text = "Discord",
-            TextSize = 13,
+            TextSize = 12,
             TextColor3 = Theme.DiscordText,
             TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 5,
@@ -2593,17 +2693,57 @@ function Library:CreateWindow(cfg)
 
     function window:SetStatus(statusCfg)
         statusCfg = statusCfg or {}
+
+        -- Username baris atas
         if statusCfg.Username then
-            statusName.Text = tostring(statusCfg.Username)
+            local name = tostring(statusCfg.Username)
+            _statusName.Text = name
+            local uid = statusCfg.UserId and tostring(statusCfg.UserId)
+                or _statusSub.Text:match("ID (%d+)") or tostring(LocalPlayer.UserId)
+            _statusSub.Text = "@" .. name .. "  ·  ID " .. uid
         end
-        if statusCfg.UserId then
-            statusId.Text = tostring(statusCfg.UserId)
+
+        -- Update sub-label ID secara terpisah jika hanya UserId yang diberikan
+        if statusCfg.UserId and not statusCfg.Username then
+            local curName = _statusName.Text
+            _statusSub.Text = "@" .. curName .. "  ·  ID " .. tostring(statusCfg.UserId)
         end
+
+        -- Pill: Online status
+        if statusCfg.Online ~= nil then
+            local online = statusCfg.Online
+            local col = online and PILL_ONLINE_COLOR or Color3.fromRGB(180, 70, 70)
+            local txt = online and "● Online" or "● Offline"
+            _pillOnlineLabel.Text = txt
+            _pillOnlineLabel.TextColor3 = col:Lerp(Color3.new(1, 1, 1), 0.55)
+            _pillOnline.BackgroundColor3 = col
+            local stroke = _pillOnline:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = col end
+        end
+
+        -- Pill: Key status  (teks bebas, mis. "No-Key" / "Key Active · 7d")
+        if statusCfg.KeyStatus then
+            _pillNoKeyLabel.Text = tostring(statusCfg.KeyStatus)
+        end
+
+        -- Pill: Tier / rank  (mis. "Free-User" / "Pro" / "VIP")
+        if statusCfg.Tier then
+            _pillTierLabel.Text = tostring(statusCfg.Tier)
+        end
+
+        -- Pill: Tier color override
+        if statusCfg.TierColor and typeof(statusCfg.TierColor) == "Color3" then
+            local col = statusCfg.TierColor
+            _pillTier.BackgroundColor3 = col
+            _pillTierLabel.TextColor3 = col:Lerp(Color3.new(1, 1, 1), 0.55)
+            local stroke = _pillTier:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = col end
+        end
+
+        -- Legacy compat: Title (no-op visual, kept for API compat)
+        -- Legacy compat: Status → KeyStatus pill
         if statusCfg.Status then
-            statusLine.Text = tostring(statusCfg.Status)
-        end
-        if statusCfg.Title then
-            statusTitle.Text = tostring(statusCfg.Title)
+            _pillNoKeyLabel.Text = tostring(statusCfg.Status)
         end
     end
 
