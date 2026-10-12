@@ -57,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 76
+local BAR_H = 88
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
@@ -74,7 +74,7 @@ local AVATAR_MARGIN = 12
 
 local INFO_X = 72
 local INFO_BOX = 15
-local INFO_GAP = 3
+local INFO_GAP = 2
 local INFO_TITLE = 13
 local INFO_LABEL_W = 56
 local INFO_SIZE = 11
@@ -2359,6 +2359,12 @@ function Library:CreateWindow(cfg)
         ZIndex = 3,
         Parent = bar,
     })
+    -- Padding atas/bawah memberi breathing room supaya konten tidak menempel tepi
+    New("UIPadding", {
+        PaddingTop    = UDim.new(0, 12),
+        PaddingBottom = UDim.new(0, 12),
+        Parent = info,
+    })
     New("UIListLayout", {
         Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -2369,7 +2375,7 @@ function Library:CreateWindow(cfg)
     -- Baris 1: Username bold
     local usernameLabel = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 17),
+        Size = UDim2.new(1, 0, 0, 16),
         Weight = "Bold",
         Text = cfg.Username or LocalPlayer.Name,
         TextSize = 14,
@@ -2381,7 +2387,7 @@ function Library:CreateWindow(cfg)
     -- Baris 2: ID saja (ringkas, secondary)
     local subLabel = Label({
         LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 12),
+        Size = UDim2.new(1, 0, 0, 11),
         Weight = "Medium",
         Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
         TextSize = 10,
@@ -2394,7 +2400,7 @@ function Library:CreateWindow(cfg)
     local pillRow = New("Frame", {
         Name = "PillRow",
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 19),
+        Size = UDim2.new(1, 0, 0, 17),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2428,7 +2434,7 @@ function Library:CreateWindow(cfg)
     local function MakeStatChip(parent, order, icon, iconColor, initText)
         local chip = New("Frame", {
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 15),
+            Size = UDim2.fromOffset(0, 16),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = iconColor,
             BackgroundTransparency = 0.86,
@@ -2444,8 +2450,8 @@ function Library:CreateWindow(cfg)
             Parent = chip,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 5),
-            PaddingRight = UDim.new(0, 6),
+            PaddingLeft = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 7),
             Parent = chip,
         })
         New("UIListLayout", {
@@ -2457,7 +2463,7 @@ function Library:CreateWindow(cfg)
         })
         Label({
             LayoutOrder = 1,
-            Size = UDim2.fromOffset(0, 13),
+            Size = UDim2.fromOffset(0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "Bold",
             Text = icon,
@@ -2467,7 +2473,7 @@ function Library:CreateWindow(cfg)
         })
         local val = Label({
             LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 13),
+            Size = UDim2.fromOffset(0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "SemiBold",
             Text = initText,
