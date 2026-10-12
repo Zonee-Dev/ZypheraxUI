@@ -2351,6 +2351,8 @@ function Library:CreateWindow(cfg)
 
     -- Info block — AnchorPoint Y=0.5 agar ter-center di bar tanpa hardcode posisi
     local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
+
+    -- Wrapper utama: horizontal, kiri=user block, kanan=game block
     local info = New("Frame", {
         Name = "Info",
         AnchorPoint = Vector2.new(0, 0.5),
@@ -2362,44 +2364,139 @@ function Library:CreateWindow(cfg)
         Parent = bar,
     })
     New("UIListLayout", {
-        Padding = UDim.new(0, 3),
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 0),
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = info,
+    })
+
+    -- ── KIRI: username + ID + bottomRow ─────────────────────────────────────
+    local userBlock = New("Frame", {
+        Name = "UserBlock",
+        LayoutOrder = 1,
+        Size = UDim2.new(0.56, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Parent = info,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0, 2),
         SortOrder = Enum.SortOrder.LayoutOrder,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        Parent = info,
+        Parent = userBlock,
     })
 
-    -- Baris 1: Username bold
-    local usernameLabel = Label({
+    -- Baris username: label "Username" abu + nilai putih bold — ukuran sama
+    local nameRow = New("Frame", {
+        Name = "NameRow",
         LayoutOrder = 1,
         Size = UDim2.new(1, 0, 0, 15),
+        BackgroundTransparency = 1,
+        Parent = userBlock,
+    })
+    New("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 4),
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = nameRow,
+    })
+    Label({
+        LayoutOrder = 1,
+        Size = UDim2.fromOffset(0, 13),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "Medium",
+        Text = "Username",
+        TextSize = 11,
+        TextColor3 = Theme.TextTertiary,
+        Parent = nameRow,
+    })
+    Label({
+        LayoutOrder = 2,
+        Size = UDim2.fromOffset(0, 13),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "Bold",
+        Text = ":",
+        TextSize = 11,
+        TextColor3 = Theme.TextTertiary,
+        Parent = nameRow,
+    })
+    local usernameLabel = Label({
+        LayoutOrder = 3,
+        Size = UDim2.new(1, -52, 13, 0),
+        AutomaticSize = Enum.AutomaticSize.X,
         Weight = "Bold",
         Text = cfg.Username or LocalPlayer.Name,
-        TextSize = 13,
+        TextSize = 12,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = info,
+        Parent = nameRow,
     })
 
-    -- Baris 2: ID ringkas
-    local subLabel = Label({
+    -- Baris ID: label "ID" abu + nilai putih bold — ukuran sama persis
+    local idRow = New("Frame", {
+        Name = "IdRow",
         LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 11),
+        Size = UDim2.new(1, 0, 0, 14),
+        BackgroundTransparency = 1,
+        Parent = userBlock,
+    })
+    New("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 4),
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = idRow,
+    })
+    Label({
+        LayoutOrder = 1,
+        Size = UDim2.fromOffset(0, 12),
+        AutomaticSize = Enum.AutomaticSize.X,
         Weight = "Medium",
-        Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
-        TextSize = 10,
-        TextColor3 = Theme.TextSecondary,
+        Text = "ID",
+        TextSize = 11,
+        TextColor3 = Theme.TextTertiary,
+        Parent = idRow,
+    })
+    Label({
+        LayoutOrder = 2,
+        Size = UDim2.fromOffset(0, 12),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "Bold",
+        Text = ":",
+        TextSize = 11,
+        TextColor3 = Theme.TextTertiary,
+        Parent = idRow,
+    })
+    local subLabel = Label({
+        LayoutOrder = 3,
+        Size = UDim2.fromOffset(0, 12),
+        AutomaticSize = Enum.AutomaticSize.X,
+        Weight = "Bold",
+        Text = tostring(cfg.UserId or LocalPlayer.UserId),
+        TextSize = 12,
+        TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = info,
+        Parent = idRow,
+    })
+
+    -- Gap antara ID dan bottomRow (sedikit lebih jauh dari gap normal)
+    New("Frame", {
+        LayoutOrder = 3,
+        Size = UDim2.new(1, 0, 0, 3),
+        BackgroundTransparency = 1,
+        Parent = userBlock,
     })
 
     -- Baris 3: pills + stat chips dalam SATU row horizontal
     local bottomRow = New("Frame", {
         Name = "BottomRow",
-        LayoutOrder = 3,
+        LayoutOrder = 4,
         Size = UDim2.new(1, 0, 0, 16),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
-        Parent = info,
+        Parent = userBlock,
     })
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
@@ -2412,17 +2509,109 @@ function Library:CreateWindow(cfg)
     -- pillRow = bottomRow (pills masuk ke bottomRow langsung)
     local pillRow = bottomRow
 
-    -- Separator tipis antara pills dan stats
-    local function MakeSep(parent, order)
-        local sep = New("Frame", {
+    -- ── DIVIDER vertikal ────────────────────────────────────────────────────
+    local divCol = New("Frame", {
+        Name = "DivCol",
+        LayoutOrder = 2,
+        Size = UDim2.fromOffset(1, 36),
+        BackgroundColor3 = Theme.Border,
+        BackgroundTransparency = 0.5,
+        Parent = info,
+    })
+    New("UIPadding", {
+        PaddingLeft  = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        Parent = divCol,
+    })
+
+    -- ── KANAN: game info ────────────────────────────────────────────────────
+    local gameBlock = New("Frame", {
+        Name = "GameBlock",
+        LayoutOrder = 3,
+        Size = UDim2.new(0.44, -18, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Parent = info,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0, 4),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        Parent = gameBlock,
+    })
+    New("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        Parent = gameBlock,
+    })
+
+    -- Helper: baris info kanan (icon + text kecil)
+    local function MakeGameRow(order, icon, iconColor, initText)
+        local row = New("Frame", {
             LayoutOrder = order,
-            Size = UDim2.fromOffset(1, 10),
-            BackgroundColor3 = Theme.Border,
-            BackgroundTransparency = 0.3,
-            Parent = parent,
+            Size = UDim2.new(1, 0, 0, 14),
+            BackgroundTransparency = 1,
+            Parent = gameBlock,
         })
-        return sep
+        New("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 4),
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = row,
+        })
+        Label({
+            LayoutOrder = 1,
+            Size = UDim2.fromOffset(10, 12),
+            Weight = "Bold",
+            Text = icon,
+            TextSize = 9,
+            TextColor3 = iconColor,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Parent = row,
+        })
+        local val = Label({
+            LayoutOrder = 2,
+            Size = UDim2.new(1, -14, 0, 12),
+            Weight = "SemiBold",
+            Text = initText,
+            TextSize = 10,
+            TextColor3 = Theme.TextSecondary,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Parent = row,
+        })
+        return val
     end
+
+    -- Baris game: nama game (terpotong kalau panjang)
+    local gameNameVal = MakeGameRow(1, "◉", Color3.fromRGB(100, 180, 255),
+        game:GetService("MarketplaceService") and "Loading..." or tostring(game.PlaceId))
+
+    -- Baris players online
+    local gamePlayersVal = MakeGameRow(2, "⬤", Color3.fromRGB(80, 200, 120),
+        tostring(#game:GetService("Players"):GetPlayers()) .. " Players")
+
+    -- Fetch nama game async
+    task.spawn(function()
+        local ok, info2 = pcall(function()
+            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+        end)
+        if ok and info2 and info2.Name then
+            local name = info2.Name
+            if #name > 18 then name = string.sub(name, 1, 16) .. "…" end
+            gameNameVal.Text = name
+        else
+            gameNameVal.Text = "PlaceId " .. tostring(game.PlaceId)
+        end
+    end)
+
+    -- Update player count
+    local function updatePlayers()
+        gamePlayersVal.Text = tostring(#game:GetService("Players"):GetPlayers()) .. " Players"
+    end
+    game:GetService("Players").PlayerAdded:Connect(updatePlayers)
+    game:GetService("Players").PlayerRemoving:Connect(function()
+        task.defer(updatePlayers)
+    end)
 
     -- Helper: stat chip mungil (ikon + nilai)
     local function MakeStatChip(parent, order, icon, iconColor, initText)
@@ -2488,7 +2677,14 @@ function Library:CreateWindow(cfg)
 
     local statFps  = MakeStatChip(bottomRow, 10, "▣", fpsColor,  "--fps")
     local statPing = MakeStatChip(bottomRow, 11, "◈", pingColor, "--ms")
-    MakeSep(bottomRow, 9)  -- separator antara pills (1,2) dan chips (10,11)
+    -- Separator tipis antara pills (order 1,2) dan chips (order 10,11)
+    New("Frame", {
+        LayoutOrder = 9,
+        Size = UDim2.fromOffset(1, 10),
+        BackgroundColor3 = Theme.Border,
+        BackgroundTransparency = 0.3,
+        Parent = bottomRow,
+    })
 
     -- Update FPS & Ping tiap 1 detik
     task.spawn(function()
@@ -2789,15 +2985,14 @@ function Library:CreateWindow(cfg)
     function window:SetStatus(statusCfg)
         statusCfg = statusCfg or {}
 
-        -- Username baris atas
+        -- Username
         if statusCfg.Username then
-            local name = tostring(statusCfg.Username)
-            _statusName.Text = name
+            _statusName.Text = tostring(statusCfg.Username)
         end
 
-        -- Update sub-label ID
+        -- ID — subLabel sekarang hanya nilai ID (tanpa prefix "ID :")
         if statusCfg.UserId then
-            _statusSub.Text = "ID : " .. tostring(statusCfg.UserId)
+            _statusSub.Text = tostring(statusCfg.UserId)
         end
 
         -- Pill: Online status (dummy, dot di avatar sudah representasi)
