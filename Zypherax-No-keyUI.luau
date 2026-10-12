@@ -2349,26 +2349,23 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    -- Info block: kiri avatar, kanan Discord btn
+    -- Info block — di-anchor ke tengah bar secara vertikal (AnchorPoint Y=0.5)
+    -- sehingga ada empty space atas & bawah yang simetris tanpa perlu UIPadding.
     local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
     local info = New("Frame", {
         Name = "Info",
-        Position = UDim2.fromOffset(INFO_X, 0),
-        Size = UDim2.new(1, -(INFO_X + infoRight), 1, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, INFO_X, 0.5, 0),
+        Size = UDim2.new(1, -(INFO_X + infoRight), 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
         ZIndex = 3,
         Parent = bar,
     })
-    -- Padding atas/bawah memberi breathing room supaya konten tidak menempel tepi
-    New("UIPadding", {
-        PaddingTop    = UDim.new(0, 12),
-        PaddingBottom = UDim.new(0, 12),
-        Parent = info,
-    })
     New("UIListLayout", {
         Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
         Parent = info,
     })
 
@@ -2384,10 +2381,10 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
-    -- Baris 2: ID saja (ringkas, secondary)
+    -- Baris 2: ID ringkas, secondary
     local subLabel = Label({
         LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 11),
+        Size = UDim2.new(1, 0, 0, 12),
         Weight = "Medium",
         Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
         TextSize = 10,
@@ -2400,7 +2397,7 @@ function Library:CreateWindow(cfg)
     local pillRow = New("Frame", {
         Name = "PillRow",
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 17),
+        Size = UDim2.new(1, 0, 0, 18),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2417,7 +2414,7 @@ function Library:CreateWindow(cfg)
     local statRow = New("Frame", {
         Name = "StatRow",
         LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 15),
+        Size = UDim2.new(1, 0, 0, 16),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
