@@ -57,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 88
+local BAR_H = 72
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
@@ -2349,8 +2349,7 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    -- Info block — di-anchor ke tengah bar secara vertikal (AnchorPoint Y=0.5)
-    -- sehingga ada empty space atas & bawah yang simetris tanpa perlu UIPadding.
+    -- Info block — AnchorPoint Y=0.5 agar ter-center di bar tanpa hardcode posisi
     local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
     local info = New("Frame", {
         Name = "Info",
@@ -2363,7 +2362,7 @@ function Library:CreateWindow(cfg)
         Parent = bar,
     })
     New("UIListLayout", {
-        Padding = UDim.new(0, INFO_GAP),
+        Padding = UDim.new(0, 3),
         SortOrder = Enum.SortOrder.LayoutOrder,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         Parent = info,
@@ -2372,19 +2371,19 @@ function Library:CreateWindow(cfg)
     -- Baris 1: Username bold
     local usernameLabel = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 16),
+        Size = UDim2.new(1, 0, 0, 15),
         Weight = "Bold",
         Text = cfg.Username or LocalPlayer.Name,
-        TextSize = 14,
+        TextSize = 13,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = info,
     })
 
-    -- Baris 2: ID ringkas, secondary
+    -- Baris 2: ID ringkas
     local subLabel = Label({
         LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 12),
+        Size = UDim2.new(1, 0, 0, 11),
         Weight = "Medium",
         Text = "ID : " .. tostring(cfg.UserId or LocalPlayer.UserId),
         TextSize = 10,
@@ -2393,11 +2392,11 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
-    -- Baris 3: pill tags (No-Key, Free-User)
-    local pillRow = New("Frame", {
-        Name = "PillRow",
+    -- Baris 3: pills + stat chips dalam SATU row horizontal
+    local bottomRow = New("Frame", {
+        Name = "BottomRow",
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 18),
+        Size = UDim2.new(1, 0, 0, 16),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2407,34 +2406,32 @@ function Library:CreateWindow(cfg)
         Padding = UDim.new(0, 4),
         VerticalAlignment = Enum.VerticalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = pillRow,
+        Parent = bottomRow,
     })
 
-    -- Baris 4: chip FPS + Ping
-    local statRow = New("Frame", {
-        Name = "StatRow",
-        LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 16),
-        BackgroundTransparency = 1,
-        ClipsDescendants = false,
-        Parent = info,
-    })
-    New("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 5),
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = statRow,
-    })
+    -- pillRow = bottomRow (pills masuk ke bottomRow langsung)
+    local pillRow = bottomRow
 
-    -- Helper: chip kecil ikon + nilai
+    -- Separator tipis antara pills dan stats
+    local function MakeSep(parent, order)
+        local sep = New("Frame", {
+            LayoutOrder = order,
+            Size = UDim2.fromOffset(1, 10),
+            BackgroundColor3 = Theme.Border,
+            BackgroundTransparency = 0.3,
+            Parent = parent,
+        })
+        return sep
+    end
+
+    -- Helper: stat chip mungil (ikon + nilai)
     local function MakeStatChip(parent, order, icon, iconColor, initText)
         local chip = New("Frame", {
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 16),
+            Size = UDim2.fromOffset(0, 15),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = iconColor,
-            BackgroundTransparency = 0.86,
+            BackgroundTransparency = 0.88,
             ZIndex = 4,
             Parent = parent,
         })
@@ -2442,40 +2439,40 @@ function Library:CreateWindow(cfg)
         New("UIStroke", {
             Color = iconColor,
             Thickness = 1,
-            Transparency = 0.5,
+            Transparency = 0.55,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = chip,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 6),
-            PaddingRight = UDim.new(0, 7),
+            PaddingLeft  = UDim.new(0, 5),
+            PaddingRight = UDim.new(0, 6),
             Parent = chip,
         })
         New("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 3),
+            Padding = UDim.new(0, 2),
             VerticalAlignment = Enum.VerticalAlignment.Center,
             SortOrder = Enum.SortOrder.LayoutOrder,
             Parent = chip,
         })
         Label({
             LayoutOrder = 1,
-            Size = UDim2.fromOffset(0, 14),
+            Size = UDim2.fromOffset(0, 13),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "Bold",
             Text = icon,
-            TextSize = 9,
-            TextColor3 = iconColor:Lerp(Color3.new(1, 1, 1), 0.45),
+            TextSize = 8,
+            TextColor3 = iconColor:Lerp(Color3.new(1, 1, 1), 0.5),
             Parent = chip,
         })
         local val = Label({
             LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 14),
+            Size = UDim2.fromOffset(0, 13),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "SemiBold",
             Text = initText,
             TextSize = 10,
-            TextColor3 = Color3.fromRGB(210, 218, 232),
+            TextColor3 = Color3.fromRGB(205, 213, 228),
             Parent = chip,
         })
         return val
@@ -2484,8 +2481,14 @@ function Library:CreateWindow(cfg)
     local fpsColor  = Color3.fromRGB(72, 196, 140)
     local pingColor = accents.top
 
-    local statFps  = MakeStatChip(statRow, 1, "▣ FPS", fpsColor,  "--")
-    local statPing = MakeStatChip(statRow, 2, "◈ Ping", pingColor, "--")
+    -- Pills masuk ke bottomRow (LayoutOrder 1 & 2), separator, lalu chips (order 10+)
+    -- MakeStatusPill akan di-call setelah ini dengan parent=pillRow=bottomRow
+    -- Chips stat masuk setelah pills dengan LayoutOrder lebih tinggi
+    -- Separator dan chips dibuat setelah pills terdefinisi
+
+    local statFps  = MakeStatChip(bottomRow, 10, "▣", fpsColor,  "--fps")
+    local statPing = MakeStatChip(bottomRow, 11, "◈", pingColor, "--ms")
+    MakeSep(bottomRow, 9)  -- separator antara pills (1,2) dan chips (10,11)
 
     -- Update FPS & Ping tiap 1 detik
     task.spawn(function()
@@ -2518,14 +2521,14 @@ function Library:CreateWindow(cfg)
         local pill = New("Frame", {
             Name = "Pill_" .. order,
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 20),
+            Size = UDim2.fromOffset(0, 15),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = fillColor,
-            BackgroundTransparency = 0.78,
+            BackgroundTransparency = 0.82,
             ZIndex = 4,
             Parent = parent,
         })
-        Round(pill, 10)
+        Round(pill, 8)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
@@ -2534,15 +2537,15 @@ function Library:CreateWindow(cfg)
             Parent = pill,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 8),
-            PaddingRight = UDim.new(0, 8),
+            PaddingLeft = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 6),
             Parent = pill,
         })
         local lbl = Label({
             Size = UDim2.new(1, 0, 1, 0),
             Weight = "Bold",
             Text = text,
-            TextSize = 11,
+            TextSize = 10,
             TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.65),
             TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 5,
