@@ -46,40 +46,6 @@ local Theme = {
     SteelInk = Color3.fromRGB(12, 20, 38),
 }
 
--- Badge tones ------------------------------------------------------------
--- Warna terang untuk badge status (isi transparan + outline & teks terang).
-
-local BADGE_TONES = {
-    success = Color3.fromRGB(74, 222, 128),   -- Online
-    danger = Color3.fromRGB(248, 113, 113),   -- Offline / Banned
-    info = Color3.fromRGB(56, 189, 248),      -- No-Key
-    warning = Color3.fromRGB(251, 191, 36),   -- Key Required
-    free = Color3.fromRGB(167, 139, 250),     -- Free-User
-    premium = Color3.fromRGB(250, 204, 21),   -- Premium / VIP
-    neutral = Color3.fromRGB(165, 174, 192),
-}
-
--- Tebak warna dari teksnya. Bisa dioverride lewat Tone / Color pada badge.
-local function BadgeTone(text, fallback)
-    local key = string.lower(text)
-    key = string.gsub(key, "[%s_]+", "-")
-    if string.find(key, "offline", 1, true) or string.find(key, "banned", 1, true) then
-        return BADGE_TONES.danger
-    elseif string.find(key, "online", 1, true) then
-        return BADGE_TONES.success
-    elseif string.find(key, "no%-?key") or string.find(key, "keyless", 1, true) then
-        return BADGE_TONES.info
-    elseif string.find(key, "premium", 1, true) or string.find(key, "vip", 1, true)
-        or string.find(key, "lifetime", 1, true) or string.find(key, "elite", 1, true) then
-        return BADGE_TONES.premium
-    elseif string.find(key, "free", 1, true) then
-        return BADGE_TONES.free
-    elseif string.find(key, "key", 1, true) then
-        return BADGE_TONES.warning
-    end
-    return fallback or BADGE_TONES.neutral
-end
-
 -- Geometry -------------------------------------------------------------
 
 local WIDTH = 420
@@ -100,17 +66,12 @@ local AVATAR = 54
 local AVATAR_IMG = 44
 local AVATAR_MARGIN = 10
 
-local INFO_X = 76          -- jarak kiri blok info (rapat ke avatar)
-local INFO_GAP = 4          -- jarak antar baris di dalam pill bawah
-local INFO_NAME_H = 18      -- baris username (bold, besar)
-local INFO_NAME_SIZE = 15
-local INFO_ID_H = 14        -- baris ID (kecil, di bawah username)
-local INFO_ID_SIZE = 11
-
-local CHIP_H = 20           -- tinggi badge status (Online / No-Key / Free-User)
-local CHIP_SIZE = 11
-local CHIP_PAD = 7
-local CHIP_GAP = 5
+local INFO_X = 82
+local INFO_BOX = 15
+local INFO_GAP = 2
+local INFO_TITLE = 13
+local INFO_LABEL_W = 64
+local INFO_SIZE = 11
 
 local DISCORD_W = 112
 local DISCORD_H = 42
@@ -431,46 +392,31 @@ local function Glyph(parent, name, color, size)
             return part
         end
 
-        -- Panah & centang digambar dengan "stempel" lingkaran kecil yang berderet rapat
-        -- sepanjang garis (polyline), BUKAN dua batang tipis yang diputar 45 derajat.
-        -- Batang tipis yang diputar dirender tanpa anti-alias dan sering jatuh di setengah
-        -- piksel (apalagi saat UIScale != 1), sehingga ujung & sudutnya terlihat terpotong.
-        -- Lingkaran UICorner selalu halus, ujungnya bulat sempurna, dan tidak bergantung rotasi.
+        -- Panah & centang = dua batang yang bertemu di satu titik ujung (tip). Dulu keduanya
+        -- hanya "bersentuhan" di tip, dan karena ujung batang berbentuk semi-lingkaran, sudut
+        -- luarnya bertakik (ujung terlihat terpotong). Sekarang tiap batang diperpanjang
+        -- setengah ketebalan MELEWATI tip, sehingga keduanya saling menutup dan tip jadi bulat bersih.
         local THICK = 2
+        local C = math.sqrt(0.5)
 
-        local function dot(x, y)
-            local part = New("Frame", {
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.new(0.5, x, 0.5, y),
-                Size = UDim2.fromOffset(THICK, THICK),
-                BackgroundColor3 = color,
-                Parent = holder,
-            })
-            Round(part, THICK / 2)
-            table.insert(parts, part)
-        end
-
-        local function polyline(points)
-            for i = 1, #points - 1 do
-                local a, b = points[i], points[i + 1]
-                local dx, dy = b[1] - a[1], b[2] - a[2]
-                local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / (THICK * 0.45)))
-                for step = (i == 1) and 0 or 1, steps do
-                    local t = step / steps
-                    dot(a[1] + dx * t, a[2] + dy * t)
-                end
-            end
+        -- batang dari tip sepanjang `reach` ke arah (dirX, dirY) (vektor satuan), plus perpanjangan di tip
+        local function arm(tipX, tipY, dirX, dirY, reach)
+            local ext = THICK / 2
+            local mid = (reach - ext) / 2
+            return bar(reach + ext, THICK, math.deg(math.atan2(dirY, dirX)), tipX + dirX * mid, tipY + dirY * mid)
         end
 
         -- panah bentuk V; (ux, uy) = arah ujung. Tip digeser setengah jangkauan agar V tepat di tengah holder.
         local function vee(ux, uy)
             local w = size * 0.30   -- jangkauan horizontal/vertikal tiap lengan
-            local tipX, tipY = ux * w / 2, uy * w / 2
-            polyline({
-                { tipX + (-ux + uy) * w, tipY + (-ux - uy) * w },
-                { tipX, tipY },
-                { tipX + (-ux - uy) * w, tipY + (ux - uy) * w },
-            })
+            local reach = w / C     -- panjang lengan sepanjang sumbunya
+            local off = w / 2 - 0.4  -- -0.4: koreksi karena bulatan di tip menambah ~0.4px ke arah ujung
+            local tipX, tipY = ux * off, uy * off
+            for _, s in ipairs({ 1, -1 }) do
+                local dx = (-ux + uy * s) * C
+                local dy = (-ux * s - uy) * C
+                arm(tipX, tipY, dx, dy, reach)
+            end
         end
 
         if name == "chevron" then
@@ -485,11 +431,9 @@ local function Glyph(parent, name, color, size)
         elseif name == "check" then
             -- lengan pendek ke kiri-atas, lengan panjang ke kanan-atas, tip di kiri-bawah;
             -- tip digeser agar centang tepat di tengah holder
-            polyline({
-                { -size * 0.30, 0 },
-                { -size * 0.10, size * 0.20 },
-                { size * 0.30, -size * 0.20 },
-            })
+            local tipX, tipY = -size * 0.10, size * 0.20 - 0.4
+            arm(tipX, tipY, -C, -C, size * 0.20 / C)
+            arm(tipX, tipY, C, -C, size * 0.40 / C)
         elseif name == "maximize" then
             ring(size * 0.62, size * 0.62, 2, 2, 0, 0)
         elseif name == "search" then
@@ -1007,15 +951,13 @@ local function BuildItems(page, accents, ctx)
             Parent = track,
         })
         Round(onFill, 10)
-        -- Gradient diagonal & kontras jelas (biru muda -> biru royal -> biru tua). Dulu vertikal
-        -- di track setinggi 20px sehingga selisih warnanya nyaris tak terlihat (tampak flat).
         New("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, accents.top:Lerp(Color3.new(1, 1, 1), 0.12)),
-                ColorSequenceKeypoint.new(0.5, accents.top:Lerp(accents.mid, 0.55)),
-                ColorSequenceKeypoint.new(1, accents.mid:Lerp(accents.bottom, 0.55)),
+                ColorSequenceKeypoint.new(0, accents.top),
+                ColorSequenceKeypoint.new(0.5, accents.mid),
+                ColorSequenceKeypoint.new(1, accents.bottom),
             }),
-            Rotation = 20,
+            Rotation = 90,
             Parent = onFill,
         })
 
@@ -1236,17 +1178,9 @@ local function BuildItems(page, accents, ctx)
             TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = row,
         })
-        -- Rotasi GuiObject berpusat di AnchorPoint. Dulu holder panah di-anchor (1, 0.5) lalu
-        -- diputar 180 derajat, jadi panah "berayun" ke kanan hingga menabrak tepi baris dan
-        -- terpotong. Sekarang glyph (anchor tengah) ditaruh di wadah tetap, jadi berputar di tempat.
-        local arrowWrap = New("Frame", {
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(14, 14),
-            BackgroundTransparency = 1,
-            Parent = row,
-        })
-        local arrow, arrowPaint = Glyph(arrowWrap, "chevronDown", Theme.TextTertiary, 14)
+        local arrow, arrowPaint = Glyph(row, "chevronDown", Theme.TextTertiary, 14)
+        arrow.AnchorPoint = Vector2.new(1, 0.5)
+        arrow.Position = UDim2.new(1, -12, 0.5, 0)
 
         local list = New("Frame", {
             Position = UDim2.new(0, 4, 1, 2),
@@ -1323,7 +1257,7 @@ local function BuildItems(page, accents, ctx)
                     Parent = entry,
                 })
                 if selected then
-                    local mark = Glyph(entry, "check", accents.top, 14)
+                    local mark = Glyph(entry, "check", accents.top, 12)
                     mark.AnchorPoint = Vector2.new(1, 0.5)
                     mark.Position = UDim2.new(1, -8, 0.5, 0)
                 end
@@ -1394,14 +1328,7 @@ local function BuildItems(page, accents, ctx)
             Parent = row,
         })
         Round(pill, 6)
-        -- ApplyStrokeMode WAJIB Border: di TextButton/TextBox mode bawaan (Contextual) menggambar
-        -- outline pada TEKS, bukan tepi shape, sehingga shape tak punya garis tepi.
-        local pillStroke = New("UIStroke", {
-            Color = Theme.Border,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = pill,
-        })
+        local pillStroke = New("UIStroke", { Color = Theme.Border, Thickness = 1, Parent = pill })
         local keyLabel = Label({
             Position = UDim2.fromOffset(4, 0),
             Size = UDim2.new(1, -8, 1, 0),
@@ -1481,68 +1408,63 @@ local function BuildItems(page, accents, ctx)
         local row = Row(38)
         Titles(row, title, nil, 150)
 
-        -- Shape (frame) dipisah dari TextBox. Shape yang memegang warna, sudut, outline, dan
-        -- ClipsDescendants; TextBox transparan di dalamnya dengan padding kiri-kanan. Dengan begini
-        -- teks (URL webhook yang panjang, placeholder, kursor) TIDAK bisa keluar dari shape.
-        local boxFrame = New("Frame", {
-            Name = "InputShape",
+        -- TextBox TIDAK memotong teks yang lebih panjang dari kotaknya (mis. URL webhook), jadi
+        -- teks meluber keluar shape. Shape dibuat dari Frame biasa; TextBox transparan ada di
+        -- dalam frame ber-ClipsDescendants sehingga teks & placeholder selalu tertahan di dalam shape.
+        local shell = New("Frame", {
+            Name = "InputShell",
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(150, 26),
+            Size = UDim2.fromOffset(140, 26),
             BackgroundColor3 = Theme.Inset,
-            ClipsDescendants = true,
             Parent = row,
         })
-        Round(boxFrame, 7)
-        -- Border: outline digambar di tepi frame (bukan di teks).
+        Round(shell, 8)
         local boxStroke = New("UIStroke", {
             Color = Theme.Border,
             Thickness = 1,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = boxFrame,
+            Parent = shell,
         })
-
-        local box = New("TextBox", {
-            Name = "Input",
+        local clip = New("Frame", {
+            Name = "Clip",
             Position = UDim2.fromOffset(9, 0),
             Size = UDim2.new(1, -18, 1, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Parent = shell,
+        })
+        local box = New("TextBox", {
+            Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             TextColor3 = Theme.Text,
             PlaceholderText = placeholder,
             PlaceholderColor3 = Theme.TextTertiary,
             FontFace = Typo.Regular,
-            TextSize = 12,
+            TextSize = ROW_VALUE_SIZE,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ClipsDescendants = true,
             ClearTextOnFocus = false,
             Text = default,
-            Parent = boxFrame,
+            Parent = clip,
         })
 
-        local focused = false
+        -- klik di bagian shape mana pun (termasuk tepi) memfokuskan input
+        shell.InputBegan:Connect(function(input)
+            if IsPointer(input) and not box:IsFocused() then
+                task.defer(function()
+                    box:CaptureFocus()
+                end)
+            end
+        end)
+
         box.Focused:Connect(function()
-            focused = true
-            box.TextTruncate = Enum.TextTruncate.None   -- saat mengetik, teks scroll mengikuti kursor
-            Tween(boxStroke, 0.12, { Color = accents.top })
+            boxStroke.Color = accents.top
         end)
         box.FocusLost:Connect(function()
-            focused = false
-            box.TextTruncate = Enum.TextTruncate.AtEnd  -- saat tidak fokus, teks panjang jadi "..."
-            Tween(boxStroke, 0.12, { Color = Theme.Border })
+            boxStroke.Color = Theme.Border
             obj.Value = box.Text
             task.spawn(callback, box.Text)
-        end)
-        boxFrame.MouseEnter:Connect(function()
-            if not focused then
-                Tween(boxStroke, 0.12, { Color = Theme.BorderStrong })
-            end
-        end)
-        boxFrame.MouseLeave:Connect(function()
-            if not focused then
-                Tween(boxStroke, 0.12, { Color = Theme.Border })
-            end
         end)
 
         function obj:Set(text, silent)
@@ -1578,12 +1500,7 @@ local function BuildItems(page, accents, ctx)
             Parent = row,
         })
         Round(swatch, 7)
-        New("UIStroke", {
-            Color = Theme.BorderStrong,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = swatch,
-        })
+        New("UIStroke", { Color = Theme.BorderStrong, Thickness = 1, Parent = swatch })
 
         local panelOpen = false
         local panel = New("Frame", {
@@ -1986,7 +1903,6 @@ function Library:CreateWindow(cfg)
         Position = UDim2.fromOffset(HEADER_MARGIN, HEADER_Y),
         Size = UDim2.fromOffset(SEARCH_W, HEADER_H),
         BackgroundColor3 = Theme.Inset,
-        ClipsDescendants = true,
         ZIndex = 5,
         Parent = panel,
     })
@@ -2014,7 +1930,6 @@ function Library:CreateWindow(cfg)
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
-        ClipsDescendants = true,
         ClearTextOnFocus = false,
         ZIndex = 6,
         Parent = searchFrame,
@@ -2410,12 +2325,9 @@ function Library:CreateWindow(cfg)
         Position = UDim2.fromOffset(INFO_X, 0),
         Size = UDim2.new(1, -(INFO_X + (discord and (DISCORD_W + DISCORD_MARGIN + 12) or CONTENT_X)), 1, 0),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,  -- badge berlebih terpotong rapi, tidak menimpa tombol Discord
         ZIndex = 3,
         Parent = bar,
     })
-    -- 2px: outline badge digambar di luar tepinya, tanpa ruang ini sisi kiri ikut terpotong clip.
-    New("UIPadding", { PaddingLeft = UDim.new(0, 2), Parent = info })
     New("UIListLayout", {
         Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -2423,213 +2335,54 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
-    -- Judul kecil opsional: tersembunyi kecuali cfg.StatusTitle / SetStatus({ Title = ... }).
     local statusTitle = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 12),
+        Size = UDim2.new(1, 0, 0, INFO_BOX),
         Weight = "Bold",
-        Text = cfg.StatusTitle and tostring(cfg.StatusTitle) or "",
-        TextSize = 10,
-        TextColor3 = Theme.TextTertiary,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = cfg.StatusTitle ~= nil and cfg.StatusTitle ~= "",
-        Parent = info,
-    })
-
-    -- Baris 1: username, bold & besar sebagai fokus utama.
-    local statusName = Label({
-        LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, INFO_NAME_H),
-        Weight = "Bold",
-        Text = tostring(cfg.Username or LocalPlayer.Name),
-        TextSize = INFO_NAME_SIZE,
+        Text = "USER STATUS",
+        TextSize = INFO_TITLE,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = info,
     })
-
-    -- Baris 2: "ID  123456". Label & nilai dirapatkan (autosize), bukan kolom lebar tetap
-    -- 64px seperti dulu yang bikin "ID:" terlihat jauh dari nilainya.
-    local idRow = New("Frame", {
-        Name = "ID",
-        LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, INFO_ID_H),
-        BackgroundTransparency = 1,
-        Parent = info,
-    })
-    New("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        Parent = idRow,
-    })
-    Label({
-        LayoutOrder = 1,
-        Size = UDim2.new(0, 0, 1, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Weight = "SemiBold",
-        Text = "ID",
-        TextSize = INFO_ID_SIZE,
-        TextColor3 = Theme.TextTertiary,
-        Parent = idRow,
-    })
-    local statusId = Label({
+    New("Frame", {
+        Name = "Spacer",
         LayoutOrder = 2,
-        Size = UDim2.new(0, 0, 1, 0),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Weight = "SemiBold",
-        Text = tostring(cfg.UserId or LocalPlayer.UserId),
-        TextSize = INFO_ID_SIZE,
-        TextColor3 = Theme.TextSecondary,
-        Parent = idRow,
-    })
-
-    -- Baris 3: badge status berbentuk pill transparan & terang.
-    local chips = New("Frame", {
-        Name = "Badges",
-        LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, CHIP_H),
+        Size = UDim2.new(1, 0, 0, 2),
         BackgroundTransparency = 1,
         Parent = info,
     })
-    New("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, CHIP_GAP),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        Parent = chips,
-    })
 
-    local badgeTweens = {}
-
-    local function clearBadges()
-        for _, tween in ipairs(badgeTweens) do
-            pcall(function()
-                tween:Cancel()
-            end)
-        end
-        table.clear(badgeTweens)
-        for _, child in ipairs(chips:GetChildren()) do
-            if child:IsA("Frame") then
-                child:Destroy()
-            end
-        end
-    end
-
-    -- spec: "Online"  atau  { Text = "Online", Tone = "success" | Color = Color3, Dot = true }
-    local function addBadge(order, spec)
-        if type(spec) ~= "table" then
-            spec = { Text = spec }
-        end
-        local text = tostring(spec.Text or spec[1] or "")
-        if text == "" then
-            return
-        end
-
-        local tone = spec.Color
-        if typeof(tone) ~= "Color3" then
-            tone = spec.Tone and BADGE_TONES[string.lower(tostring(spec.Tone))] or BadgeTone(text, accents.top)
-        end
-        local bright = tone:Lerp(Color3.new(1, 1, 1), 0.3)
-
-        local dotted = spec.Dot
-        if dotted == nil then
-            local lowered = string.lower(text)
-            dotted = lowered == "online" or lowered == "offline"
-        end
-
-        local chip = New("Frame", {
-            Name = "Badge",
+    local function InfoRow(order, name, value)
+        local row = New("Frame", {
+            Name = name,
             LayoutOrder = order,
-            AutomaticSize = Enum.AutomaticSize.X,
-            Size = UDim2.fromOffset(0, CHIP_H),
-            BackgroundColor3 = tone,
-            BackgroundTransparency = 0.8,   -- kaca transparan
-            ZIndex = 4,
-            Parent = chips,
+            Size = UDim2.new(1, 0, 0, INFO_BOX),
+            BackgroundTransparency = 1,
+            Parent = info,
         })
-        Round(chip, CHIP_H / 2)
-        New("UIStroke", {
-            Color = tone,
-            Thickness = 1,
-            Transparency = 0.3,             -- outline terang
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = chip,
-        })
-        New("UIPadding", {
-            PaddingLeft = UDim.new(0, CHIP_PAD),
-            PaddingRight = UDim.new(0, CHIP_PAD),
-            Parent = chip,
-        })
-        New("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 4),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            Parent = chip,
-        })
-
-        if dotted then
-            local dot = New("Frame", {
-                LayoutOrder = 1,
-                Size = UDim2.fromOffset(6, 6),
-                BackgroundColor3 = tone,
-                ZIndex = 5,
-                Parent = chip,
-            })
-            Round(dot, 3)
-            local pulse = TweenService:Create(
-                dot,
-                TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-                { BackgroundTransparency = 0.65 }
-            )
-            pulse:Play()
-            table.insert(badgeTweens, pulse)
-        end
-
         Label({
-            LayoutOrder = 2,
-            Size = UDim2.new(0, 0, 1, 0),
-            AutomaticSize = Enum.AutomaticSize.X,
-            Weight = "SemiBold",
-            Text = text,
-            TextSize = CHIP_SIZE,
-            TextColor3 = bright,
-            ZIndex = 5,
-            Parent = chip,
+            Size = UDim2.new(0, INFO_LABEL_W, 1, 0),
+            Weight = "Medium",
+            Text = name .. ":",
+            TextSize = INFO_SIZE,
+            TextColor3 = Theme.TextTertiary,
+            Parent = row,
+        })
+        return Label({
+            Position = UDim2.fromOffset(INFO_LABEL_W, 0),
+            Size = UDim2.new(1, -INFO_LABEL_W, 1, 0),
+            Text = tostring(value),
+            TextSize = INFO_SIZE,
+            TextColor3 = Theme.Text,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Parent = row,
         })
     end
 
-    -- Default: Online - No-Key - Free-User. Bisa diganti lewat cfg.Online / cfg.Key / cfg.Tier,
-    -- atau cfg.Badges = { "Online", { Text = "VIP", Tone = "premium" } } untuk daftar bebas.
-    -- cfg.Status (lama) otomatis dipakai sebagai badge Key.
-    local badgeState = {
-        Badges = cfg.Badges,
-        Online = cfg.Online,
-        Key = cfg.Key or cfg.Status,
-        Tier = cfg.Tier or cfg.User,
-    }
-
-    local function renderBadges()
-        clearBadges()
-        local list = badgeState.Badges
-        if type(list) ~= "table" then
-            local online = badgeState.Online
-            if online == nil then
-                online = true
-            end
-            list = {
-                type(online) == "string" and online or (online and "Online" or "Offline"),
-                badgeState.Key or "No-Key",
-                badgeState.Tier or "Free-User",
-            }
-        end
-        for index, spec in ipairs(list) do
-            addBadge(index, spec)
-        end
-    end
-    renderBadges()
+    local statusName = InfoRow(3, "Username", cfg.Username or LocalPlayer.Name)
+    local statusId = InfoRow(4, "ID", cfg.UserId or LocalPlayer.UserId)
+    local statusLine = InfoRow(5, "Status", cfg.Status or "No-Key Script")
 
     -- Discord pill ------------------------------------------------------
 
@@ -2831,11 +2584,6 @@ function Library:CreateWindow(cfg)
         pcall(function()
             haloTween:Cancel()
         end)
-        for _, tween in ipairs(badgeTweens) do
-            pcall(function()
-                tween:Cancel()
-            end)
-        end
         for _, connection in ipairs(connections) do
             connection:Disconnect()
         end
@@ -2851,43 +2599,12 @@ function Library:CreateWindow(cfg)
         if statusCfg.UserId then
             statusId.Text = tostring(statusCfg.UserId)
         end
+        if statusCfg.Status then
+            statusLine.Text = tostring(statusCfg.Status)
+        end
         if statusCfg.Title then
             statusTitle.Text = tostring(statusCfg.Title)
-            statusTitle.Visible = statusCfg.Title ~= ""
         end
-
-        -- Badges memakai daftar bebas; Online / Key / Tier (atau Status lama) mengubah badge bawaan.
-        local changed = false
-        if statusCfg.Badges ~= nil then
-            badgeState.Badges = statusCfg.Badges
-            changed = true
-        end
-        local fieldGiven = false
-        if statusCfg.Online ~= nil then
-            badgeState.Online = statusCfg.Online
-            fieldGiven = true
-        end
-        if statusCfg.Key or statusCfg.Status then
-            badgeState.Key = statusCfg.Key or statusCfg.Status
-            fieldGiven = true
-        end
-        if statusCfg.Tier or statusCfg.User then
-            badgeState.Tier = statusCfg.Tier or statusCfg.User
-            fieldGiven = true
-        end
-        if fieldGiven then
-            if statusCfg.Badges == nil then
-                badgeState.Badges = nil
-            end
-            changed = true
-        end
-        if changed then
-            renderBadges()
-        end
-    end
-
-    function window:SetBadges(list)
-        window:SetStatus({ Badges = list or {} })
     end
 
     launcher.Activated:Connect(function()
