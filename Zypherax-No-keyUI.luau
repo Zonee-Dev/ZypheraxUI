@@ -3025,9 +3025,12 @@ function Library:CreateWindow(cfg)
             return
         end
         local idx = (selectedTab.Order or 1) - 1
-        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        local goalPosition = UDim2.fromOffset(x, 0)
-        local goalSize = UDim2.new(0, TAB_W, 1, 0)
+        -- x dalam canvas space, tapi thumb sekarang child tabScroll,
+        -- jadi posisinya harus dikompensasi dengan CanvasPosition.X
+        local canvasX = tabScroll and tabScroll.CanvasPosition.X or 0
+        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP) - canvasX
+        local goalPosition = UDim2.fromOffset(x, SCROLL_PAD)
+        local goalSize = UDim2.new(0, TAB_W, 1, -SCROLL_PAD * 2)
         tabThumb.Visible = true
         if animate then
             Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
@@ -3067,12 +3070,12 @@ function Library:CreateWindow(cfg)
         -- menyala supaya page tetap terpotong.
         content.ClipsDescendants = false
 
-        tabStrip = New("Frame", {
+        tabStrip = New("CanvasGroup", {
             Name = "TabStrip",
             Position = UDim2.fromOffset(STRIP_INSET, STRIP_INSET),
             Size = UDim2.new(1, -STRIP_INSET * 2, 0, STRIP_H),
             BackgroundColor3 = Theme.Inset,
-            ClipsDescendants = true,
+            GroupTransparency = 0,
             LayoutOrder = 0,
             Parent = content,
         })
@@ -3110,12 +3113,12 @@ function Library:CreateWindow(cfg)
 
         tabThumb = New("Frame", {
             Name = "Thumb",
-            Position = UDim2.fromOffset(TRACK_PAD, 0),
-            Size = UDim2.new(0, TAB_W, 1, 0),
+            Position = UDim2.fromOffset(TRACK_PAD, SCROLL_PAD),
+            Size = UDim2.new(0, TAB_W, 1, -SCROLL_PAD * 2),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             ZIndex = 1,
-            Parent = tabTrack,
+            Parent = tabScroll,
         })
         Round(tabThumb, (STRIP_H - SCROLL_PAD * 2) / 2)
         New("UIGradient", {
@@ -3164,6 +3167,7 @@ function Library:CreateWindow(cfg)
 
         tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             layoutIndicator(false)
+            layoutThumb(false)
         end)
 
         pagesHolder = New("Frame", {
