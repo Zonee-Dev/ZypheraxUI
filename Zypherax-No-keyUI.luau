@@ -57,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 76
+local BAR_H = 88
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
@@ -74,7 +74,7 @@ local AVATAR_MARGIN = 12
 
 local INFO_X = 72
 local INFO_BOX = 15
-local INFO_GAP = 3
+local INFO_GAP = 2
 local INFO_TITLE = 13
 local INFO_LABEL_W = 56
 local INFO_SIZE = 11
@@ -2349,12 +2349,15 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    -- Info block: kiri avatar, kanan Discord btn
+    -- Info block — di-anchor ke tengah bar secara vertikal (AnchorPoint Y=0.5)
+    -- sehingga ada empty space atas & bawah yang simetris tanpa perlu UIPadding.
     local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
     local info = New("Frame", {
         Name = "Info",
-        Position = UDim2.fromOffset(INFO_X, 0),
-        Size = UDim2.new(1, -(INFO_X + infoRight), 1, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, INFO_X, 0.5, 0),
+        Size = UDim2.new(1, -(INFO_X + infoRight), 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
         ZIndex = 3,
         Parent = bar,
@@ -2362,14 +2365,14 @@ function Library:CreateWindow(cfg)
     New("UIListLayout", {
         Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
         Parent = info,
     })
 
     -- Baris 1: Username bold
     local usernameLabel = Label({
         LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 17),
+        Size = UDim2.new(1, 0, 0, 16),
         Weight = "Bold",
         Text = cfg.Username or LocalPlayer.Name,
         TextSize = 14,
@@ -2378,7 +2381,7 @@ function Library:CreateWindow(cfg)
         Parent = info,
     })
 
-    -- Baris 2: ID saja (ringkas, secondary)
+    -- Baris 2: ID ringkas, secondary
     local subLabel = Label({
         LayoutOrder = 2,
         Size = UDim2.new(1, 0, 0, 12),
@@ -2394,7 +2397,7 @@ function Library:CreateWindow(cfg)
     local pillRow = New("Frame", {
         Name = "PillRow",
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 19),
+        Size = UDim2.new(1, 0, 0, 18),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2411,7 +2414,7 @@ function Library:CreateWindow(cfg)
     local statRow = New("Frame", {
         Name = "StatRow",
         LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 15),
+        Size = UDim2.new(1, 0, 0, 16),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2428,7 +2431,7 @@ function Library:CreateWindow(cfg)
     local function MakeStatChip(parent, order, icon, iconColor, initText)
         local chip = New("Frame", {
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 15),
+            Size = UDim2.fromOffset(0, 16),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = iconColor,
             BackgroundTransparency = 0.86,
@@ -2444,8 +2447,8 @@ function Library:CreateWindow(cfg)
             Parent = chip,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 5),
-            PaddingRight = UDim.new(0, 6),
+            PaddingLeft = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 7),
             Parent = chip,
         })
         New("UIListLayout", {
@@ -2457,7 +2460,7 @@ function Library:CreateWindow(cfg)
         })
         Label({
             LayoutOrder = 1,
-            Size = UDim2.fromOffset(0, 13),
+            Size = UDim2.fromOffset(0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "Bold",
             Text = icon,
@@ -2467,7 +2470,7 @@ function Library:CreateWindow(cfg)
         })
         local val = Label({
             LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 13),
+            Size = UDim2.fromOffset(0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Weight = "SemiBold",
             Text = initText,
