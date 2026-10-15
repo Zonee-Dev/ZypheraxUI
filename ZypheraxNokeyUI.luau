@@ -2478,18 +2478,6 @@ function Library:CreateWindow(cfg)
         })
         return pill, lbl
     end
-        local lbl = Label({
-            Size = UDim2.new(1, 0, 1, 0),
-            Weight = "SemiBold",
-            Text = text,
-            TextSize = 10,
-            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
-            TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 5,
-            Parent = pill,
-        })
-        return pill, lbl
-    end
 
     local PILL_PING_COLOR  = Color3.fromRGB(80, 178, 128)    -- hijau (ping)
     local PILL_FPS_COLOR   = Color3.fromRGB(96, 170, 255)    -- biru muda (fps)
