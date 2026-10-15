@@ -2359,29 +2359,28 @@ function Library:CreateWindow(cfg)
         ZIndex = 3,
         Parent = bar,
     })
-    New("UIListLayout", {
-        Padding = UDim.new(0, 1),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        Parent = info,
-    })
 
-    local INFO_LABEL_COL = 46  -- lebar kolom label "Username" / "ID"
-    local INFO_ROW_H     = 17  -- tinggi tiap baris nama/id
-    local INFO_VAL_SIZE  = 14  -- ukuran font nilai
-    local INFO_KEY_SIZE  = 11  -- ukuran font label kiri
+    local INFO_LABEL_COL = 46
+    local INFO_KEY_SIZE  = 10
+    local INFO_VAL_SIZE  = 13
+    local INFO_ROW_H     = 16  -- tinggi tiap baris
+    local INFO_ROW_GAP   = 2   -- jarak antar baris username/id
+    local PILL_H         = 15  -- tinggi pill
+    local PILL_GAP       = 5   -- jarak pills ke baris id
+    -- total tinggi blok konten: 2 baris + gap + pills
+    local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP + PILL_H
+    -- posisi Y awal agar blok konten tepat di tengah bar
+    local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2)
 
     -- helper: buat satu baris label:value
-    local function InfoRow(layoutOrder, keyText, valueText)
+    local function InfoRow(yPos, keyText, valueText)
         local row = New("Frame", {
             Name = keyText .. "Row",
-            LayoutOrder = layoutOrder,
+            Position = UDim2.fromOffset(0, yPos),
             Size = UDim2.new(1, 0, 0, INFO_ROW_H),
             BackgroundTransparency = 1,
             Parent = info,
         })
-        -- label kiri (abu-abu, bold)
         Label({
             Size = UDim2.fromOffset(INFO_LABEL_COL, INFO_ROW_H),
             Weight = "Bold",
@@ -2391,7 +2390,6 @@ function Library:CreateWindow(cfg)
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = row,
         })
-        -- titik dua
         Label({
             Position = UDim2.fromOffset(INFO_LABEL_COL, 0),
             Size = UDim2.fromOffset(7, INFO_ROW_H),
@@ -2403,7 +2401,6 @@ function Library:CreateWindow(cfg)
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = row,
         })
-        -- nilai kanan (putih, medium, lebih besar)
         local valLabel = Label({
             Position = UDim2.fromOffset(INFO_LABEL_COL + 7, 0),
             Size = UDim2.new(1, -(INFO_LABEL_COL + 7), 0, INFO_ROW_H),
@@ -2418,23 +2415,18 @@ function Library:CreateWindow(cfg)
         return valLabel
     end
 
-    local usernameLabel = InfoRow(1, "Username", cfg.Username or LocalPlayer.Name)
-    local subLabel      = InfoRow(2, "ID",       tostring(cfg.UserId or LocalPlayer.UserId))
+    local yUsername = BLOCK_Y
+    local yId       = BLOCK_Y + INFO_ROW_H + INFO_ROW_GAP
+    local yPills    = yId + INFO_ROW_H + PILL_GAP
 
-    -- Spacer tipis antara nama/id dan pills
-    New("Frame", {
-        LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 3),
-        BackgroundTransparency = 1,
-        Parent = info,
-    })
+    local usernameLabel = InfoRow(yUsername, "Username", cfg.Username or LocalPlayer.Name)
+    local subLabel      = InfoRow(yId,       "ID",       tostring(cfg.UserId or LocalPlayer.UserId))
 
-    -- Baris pills: Ping · FPS · No-Key
+    -- Pill row: posisi absolut tepat di bawah baris ID
     local pillRow = New("Frame", {
         Name = "PillRow",
-        LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        Position = UDim2.fromOffset(0, yPills),
+        Size = UDim2.new(1, 0, 0, PILL_H),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
@@ -2453,14 +2445,14 @@ function Library:CreateWindow(cfg)
         local pill = New("Frame", {
             Name = "Pill_" .. order,
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 16),
+            Size = UDim2.fromOffset(0, PILL_H),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = fillColor,
             BackgroundTransparency = 0.72,
             ZIndex = 4,
             Parent = parent,
         })
-        Round(pill, 8)
+        Round(pill, PILL_H / 2)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
