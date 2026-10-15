@@ -57,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 72
+local BAR_H = 90
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
@@ -68,13 +68,13 @@ local NOTCH_R = 64
 local NOTCH_GAP = NOTCH_R - BADGE_D / 2
 local OVERHANG = BADGE_D / 2
 
-local AVATAR = 50
-local AVATAR_IMG = 40
-local AVATAR_MARGIN = 12
+local AVATAR = 54
+local AVATAR_IMG = 44
+local AVATAR_MARGIN = 10
 
-local INFO_X = 72
+local INFO_X = 74
 local INFO_BOX = 15
-local INFO_GAP = 2
+local INFO_GAP = 3
 local INFO_TITLE = 13
 local INFO_LABEL_W = 56
 local INFO_SIZE = 11
@@ -2349,257 +2349,103 @@ function Library:CreateWindow(cfg)
         end
     end)
 
-    -- Info block — satu kolom vertikal, di-anchor tengah bar
+    -- Info block: kiri avatar, kanan Discord btn
     local infoRight = discord and (DISCORD_W + DISCORD_MARGIN + 10) or CONTENT_X
-
     local info = New("Frame", {
         Name = "Info",
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, INFO_X, 0.5, 0),
-        Size = UDim2.new(1, -(INFO_X + infoRight), 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        Position = UDim2.fromOffset(INFO_X, 0),
+        Size = UDim2.new(1, -(INFO_X + infoRight), 1, 0),
         BackgroundTransparency = 1,
         ZIndex = 3,
         Parent = bar,
     })
     New("UIListLayout", {
-        Padding = UDim.new(0, 1),
+        Padding = UDim.new(0, INFO_GAP),
         SortOrder = Enum.SortOrder.LayoutOrder,
-        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
         Parent = info,
     })
 
-    -- ── Baris 1: Username ──────────────────────────────────────────────────
-    local nameRow = New("Frame", {
-        Name = "NameRow",
-        LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 16),
-        BackgroundTransparency = 1,
-        Parent = info,
-    })
-    New("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 3),
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = nameRow,
-    })
-    Label({
-        LayoutOrder = 1,
-        Size = UDim2.fromOffset(0, 14),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Weight = "Medium",
-        Text = "Username :",
-        TextSize = 12,
-        TextColor3 = Theme.TextTertiary,
-        Parent = nameRow,
-    })
+    -- Baris 1: Username (bold, besar)
     local usernameLabel = Label({
-        LayoutOrder = 2,
-        Size = UDim2.fromOffset(0, 14),
-        AutomaticSize = Enum.AutomaticSize.X,
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 17),
         Weight = "Bold",
         Text = cfg.Username or LocalPlayer.Name,
-        TextSize = 12,
+        TextSize = 14,
         TextColor3 = Theme.Text,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = nameRow,
-    })
-
-    -- ── Baris 2: ID (mepet ke username, jauh dari bottomRow) ───────────────
-    local idRow = New("Frame", {
-        Name = "IdRow",
-        LayoutOrder = 2,
-        Size = UDim2.new(1, 0, 0, 14),
-        BackgroundTransparency = 1,
         Parent = info,
     })
-    New("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 3),
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = idRow,
-    })
-    Label({
-        LayoutOrder = 1,
-        Size = UDim2.fromOffset(0, 12),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Weight = "Medium",
-        Text = "ID :",
-        TextSize = 12,
-        TextColor3 = Theme.TextTertiary,
-        Parent = idRow,
-    })
+
+    -- Baris 2: @name · UserID  (kecil, tertiary)
     local subLabel = Label({
         LayoutOrder = 2,
-        Size = UDim2.fromOffset(0, 12),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Weight = "Bold",
-        Text = tostring(cfg.UserId or LocalPlayer.UserId),
-        TextSize = 12,
-        TextColor3 = Theme.Text,
+        Size = UDim2.new(1, 0, 0, 13),
+        Weight = "Medium",
+        Text = "@" .. (cfg.Username or LocalPlayer.Name) .. "  ·  ID " .. tostring(cfg.UserId or LocalPlayer.UserId),
+        TextSize = 10,
+        TextColor3 = Theme.TextTertiary,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = idRow,
+        Parent = info,
     })
 
-    -- ── Spacer (ID agak jauh dari bottomRow) ───────────────────────────────
+    -- Spacer tipis
     New("Frame", {
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 5),
+        Size = UDim2.new(1, 0, 0, 2),
         BackgroundTransparency = 1,
         Parent = info,
     })
 
-    -- ── Baris 3: pills + stat chips ────────────────────────────────────────
-    local bottomRow = New("Frame", {
-        Name = "BottomRow",
+    -- Baris 3: pill tags — Online, No-Key, Free-User
+    local pillRow = New("Frame", {
+        Name = "PillRow",
         LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 16),
+        Size = UDim2.new(1, 0, 0, 20),
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
     })
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 4),
+        Padding = UDim.new(0, 5),
         VerticalAlignment = Enum.VerticalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = bottomRow,
+        Parent = pillRow,
     })
-
-    local pillRow = bottomRow
-
-    -- Helper: stat chip mungil (ikon + nilai)
-    local function MakeStatChip(parent, order, icon, iconColor, initText)
-        local chip = New("Frame", {
-            LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 15),
-            AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundColor3 = iconColor,
-            BackgroundTransparency = 0.88,
-            ZIndex = 4,
-            Parent = parent,
-        })
-        Round(chip, 8)
-        New("UIStroke", {
-            Color = iconColor,
-            Thickness = 1,
-            Transparency = 0.55,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = chip,
-        })
-        New("UIPadding", {
-            PaddingLeft  = UDim.new(0, 5),
-            PaddingRight = UDim.new(0, 6),
-            Parent = chip,
-        })
-        New("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 2),
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = chip,
-        })
-        Label({
-            LayoutOrder = 1,
-            Size = UDim2.fromOffset(0, 13),
-            AutomaticSize = Enum.AutomaticSize.X,
-            Weight = "Bold",
-            Text = icon,
-            TextSize = 8,
-            TextColor3 = iconColor:Lerp(Color3.new(1, 1, 1), 0.5),
-            Parent = chip,
-        })
-        local val = Label({
-            LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 13),
-            AutomaticSize = Enum.AutomaticSize.X,
-            Weight = "SemiBold",
-            Text = initText,
-            TextSize = 10,
-            TextColor3 = Color3.fromRGB(205, 213, 228),
-            Parent = chip,
-        })
-        return val
-    end
-
-    local fpsColor  = Color3.fromRGB(72, 196, 140)
-    local pingColor = accents.top
-
-    -- Pills masuk ke bottomRow (LayoutOrder 1 & 2), separator, lalu chips (order 10+)
-    -- MakeStatusPill akan di-call setelah ini dengan parent=pillRow=bottomRow
-    -- Chips stat masuk setelah pills dengan LayoutOrder lebih tinggi
-    -- Separator dan chips dibuat setelah pills terdefinisi
-
-    local statFps  = MakeStatChip(bottomRow, 10, "▣", fpsColor,  "--fps")
-    local statPing = MakeStatChip(bottomRow, 11, "◈", pingColor, "--ms")
-    -- Separator tipis antara pills (order 1,2) dan chips (order 10,11)
-    New("Frame", {
-        LayoutOrder = 9,
-        Size = UDim2.fromOffset(1, 10),
-        BackgroundColor3 = Theme.Border,
-        BackgroundTransparency = 0.3,
-        Parent = bottomRow,
-    })
-
-    -- Update FPS & Ping tiap 1 detik
-    task.spawn(function()
-        local RunService = game:GetService("RunService")
-        local stats = game:GetService("Stats")
-        local frameCount, lastTime = 0, tick()
-        RunService.Heartbeat:Connect(function()
-            frameCount += 1
-        end)
-        while task.wait(1) do
-            local now = tick()
-            local fps = math.floor(frameCount / math.max(now - lastTime, 0.001) + 0.5)
-            frameCount, lastTime = 0, now
-            statFps.Text = tostring(fps)
-
-            local ok, ping = pcall(function()
-                return math.floor(stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-            end)
-            if ok then
-                statPing.Text = tostring(ping) .. "ms"
-                statPing.TextColor3 = ping < 80 and Color3.fromRGB(100, 220, 150)
-                    or ping < 150 and Color3.fromRGB(230, 190, 80)
-                    or Color3.fromRGB(230, 100, 100)
-            end
-        end
-    end)
 
     -- Helper: buat satu pill tag
     local function MakeStatusPill(parent, order, text, fillColor)
         local pill = New("Frame", {
-            Name = "Pill_" .. order,
+            Name = "Pill_" .. text,
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 15),
+            Size = UDim2.fromOffset(0, 18),   -- lebar auto
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = fillColor,
-            BackgroundTransparency = 0.82,
+            BackgroundTransparency = 0.72,
             ZIndex = 4,
             Parent = parent,
         })
-        Round(pill, 8)
+        Round(pill, 9)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
-            Transparency = 0.25,
+            Transparency = 0.35,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = pill,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 6),
-            PaddingRight = UDim.new(0, 6),
+            PaddingLeft = UDim.new(0, 7),
+            PaddingRight = UDim.new(0, 7),
             Parent = pill,
         })
         local lbl = Label({
             Size = UDim2.new(1, 0, 1, 0),
-            Weight = "Bold",
+            Weight = "SemiBold",
             Text = text,
             TextSize = 10,
-            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.65),
+            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
             TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 5,
             Parent = pill,
@@ -2607,22 +2453,25 @@ function Library:CreateWindow(cfg)
         return pill, lbl
     end
 
-    local PILL_NOKEY_COLOR   = accents.top
-    local PILL_TIER_COLOR    = Color3.fromRGB(180, 140, 255)
+    local PILL_ONLINE_COLOR  = Theme.Success                          -- hijau
+    local PILL_NOKEY_COLOR   = accents.top                            -- biru accent
+    local PILL_TIER_COLOR    = Color3.fromRGB(180, 140, 255)          -- ungu lembut (free user)
 
-    -- Pill online dihapus dari row; status online cukup dari dot hijau di avatar
-    local pillNoKey,   pillNoKeyLabel   = MakeStatusPill(pillRow, 1, "No-Key",     PILL_NOKEY_COLOR)
-    local pillTier,    pillTierLabel    = MakeStatusPill(pillRow, 2, "Free-User",  PILL_TIER_COLOR)
+    local pillOnline,  pillOnlineLabel  = MakeStatusPill(pillRow, 1, "● Online",   PILL_ONLINE_COLOR)
+    local pillNoKey,   pillNoKeyLabel   = MakeStatusPill(pillRow, 2, "No-Key",     PILL_NOKEY_COLOR)
+    local pillTier,    pillTierLabel    = MakeStatusPill(pillRow, 3, "Free-User",  PILL_TIER_COLOR)
 
     -- Variabel internal untuk SetStatus
     local _statusName = usernameLabel
     local _statusSub  = subLabel
+    local _pillOnlineLabel  = pillOnlineLabel
     local _pillNoKeyLabel   = pillNoKeyLabel
     local _pillTierLabel    = pillTierLabel
+    local _pillOnline       = pillOnline
     local _pillNoKey        = pillNoKey
     local _pillTier         = pillTier
 
-    -- statusTitle invisible (kompatibilitas lama, tidak ditampilkan)
+    -- statusTitle & statusLine tetap ada untuk kompatibilitas SetStatus lama
     local statusTitle = Label({
         Size = UDim2.fromOffset(0, 0),
         BackgroundTransparency = 1,
@@ -2631,6 +2480,9 @@ function Library:CreateWindow(cfg)
         Visible = false,
         Parent = bar,
     })
+    local statusName   = usernameLabel
+    local statusId     = subLabel
+    local statusLine   = pillNoKeyLabel
 
     -- Discord pill ------------------------------------------------------
 
@@ -2842,18 +2694,32 @@ function Library:CreateWindow(cfg)
     function window:SetStatus(statusCfg)
         statusCfg = statusCfg or {}
 
-        -- Username
+        -- Username baris atas
         if statusCfg.Username then
-            _statusName.Text = tostring(statusCfg.Username)
+            local name = tostring(statusCfg.Username)
+            _statusName.Text = name
+            local uid = statusCfg.UserId and tostring(statusCfg.UserId)
+                or _statusSub.Text:match("ID (%d+)") or tostring(LocalPlayer.UserId)
+            _statusSub.Text = "@" .. name .. "  ·  ID " .. uid
         end
 
-        -- ID — subLabel sekarang hanya nilai ID (tanpa prefix "ID :")
-        if statusCfg.UserId then
-            _statusSub.Text = tostring(statusCfg.UserId)
+        -- Update sub-label ID secara terpisah jika hanya UserId yang diberikan
+        if statusCfg.UserId and not statusCfg.Username then
+            local curName = _statusName.Text
+            _statusSub.Text = "@" .. curName .. "  ·  ID " .. tostring(statusCfg.UserId)
         end
 
-        -- Pill: Online status (dummy, dot di avatar sudah representasi)
-        -- (tidak ada pill online di row lagi)
+        -- Pill: Online status
+        if statusCfg.Online ~= nil then
+            local online = statusCfg.Online
+            local col = online and PILL_ONLINE_COLOR or Color3.fromRGB(180, 70, 70)
+            local txt = online and "● Online" or "● Offline"
+            _pillOnlineLabel.Text = txt
+            _pillOnlineLabel.TextColor3 = col:Lerp(Color3.new(1, 1, 1), 0.55)
+            _pillOnline.BackgroundColor3 = col
+            local stroke = _pillOnline:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = col end
+        end
 
         -- Pill: Key status  (teks bebas, mis. "No-Key" / "Key Active · 7d")
         if statusCfg.KeyStatus then
@@ -2869,19 +2735,12 @@ function Library:CreateWindow(cfg)
         if statusCfg.TierColor and typeof(statusCfg.TierColor) == "Color3" then
             local col = statusCfg.TierColor
             _pillTier.BackgroundColor3 = col
-            _pillTierLabel.TextColor3 = col:Lerp(Color3.new(1, 1, 1), 0.65)
+            _pillTierLabel.TextColor3 = col:Lerp(Color3.new(1, 1, 1), 0.55)
             local stroke = _pillTier:FindFirstChildOfClass("UIStroke")
             if stroke then stroke.Color = col end
         end
 
-        -- Stat chip override (opsional, override tampilan dari luar)
-        if statusCfg.Ping then
-            statPing.Text = tostring(statusCfg.Ping) .. "ms"
-        end
-        if statusCfg.Fps then
-            statFps.Text = tostring(statusCfg.Fps)
-        end
-
+        -- Legacy compat: Title (no-op visual, kept for API compat)
         -- Legacy compat: Status → KeyStatus pill
         if statusCfg.Status then
             _pillNoKeyLabel.Text = tostring(statusCfg.Status)
@@ -3025,12 +2884,9 @@ function Library:CreateWindow(cfg)
             return
         end
         local idx = (selectedTab.Order or 1) - 1
-        -- x dalam canvas space, tapi thumb sekarang child tabScroll,
-        -- jadi posisinya harus dikompensasi dengan CanvasPosition.X
-        local canvasX = tabScroll and tabScroll.CanvasPosition.X or 0
-        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP) - canvasX
-        local goalPosition = UDim2.fromOffset(x, SCROLL_PAD)
-        local goalSize = UDim2.new(0, TAB_W, 1, -SCROLL_PAD * 2)
+        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        local goalPosition = UDim2.fromOffset(x, 0)
+        local goalSize = UDim2.new(0, TAB_W, 1, 0)
         tabThumb.Visible = true
         if animate then
             Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
@@ -3070,12 +2926,12 @@ function Library:CreateWindow(cfg)
         -- menyala supaya page tetap terpotong.
         content.ClipsDescendants = false
 
-        tabStrip = New("CanvasGroup", {
+        tabStrip = New("Frame", {
             Name = "TabStrip",
             Position = UDim2.fromOffset(STRIP_INSET, STRIP_INSET),
             Size = UDim2.new(1, -STRIP_INSET * 2, 0, STRIP_H),
             BackgroundColor3 = Theme.Inset,
-            GroupTransparency = 0,
+            ClipsDescendants = true,
             LayoutOrder = 0,
             Parent = content,
         })
@@ -3113,12 +2969,12 @@ function Library:CreateWindow(cfg)
 
         tabThumb = New("Frame", {
             Name = "Thumb",
-            Position = UDim2.fromOffset(TRACK_PAD, SCROLL_PAD),
-            Size = UDim2.new(0, TAB_W, 1, -SCROLL_PAD * 2),
+            Position = UDim2.fromOffset(TRACK_PAD, 0),
+            Size = UDim2.new(0, TAB_W, 1, 0),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             ZIndex = 1,
-            Parent = tabScroll,
+            Parent = tabTrack,
         })
         Round(tabThumb, (STRIP_H - SCROLL_PAD * 2) / 2)
         New("UIGradient", {
@@ -3167,7 +3023,6 @@ function Library:CreateWindow(cfg)
 
         tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             layoutIndicator(false)
-            layoutThumb(false)
         end)
 
         pagesHolder = New("Frame", {
