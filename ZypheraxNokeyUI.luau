@@ -57,7 +57,7 @@ local Theme = {
 local WIDTH = 420
 local CARD_H = 301
 local GAP = 16
-local BAR_H = 90
+local BAR_H = 68
 local TOTAL_H = CARD_H + GAP + BAR_H
 
 local R_CARD = 29
