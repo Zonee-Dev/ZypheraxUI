@@ -2363,12 +2363,13 @@ function Library:CreateWindow(cfg)
         Padding = UDim.new(0, 1),
         SortOrder = Enum.SortOrder.LayoutOrder,
         VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
         Parent = info,
     })
 
     local INFO_LABEL_COL = 46  -- lebar kolom label "Username" / "ID"
-    local INFO_ROW_H     = 19  -- tinggi tiap baris nama/id
-    local INFO_VAL_SIZE  = 15  -- ukuran font nilai
+    local INFO_ROW_H     = 17  -- tinggi tiap baris nama/id
+    local INFO_VAL_SIZE  = 14  -- ukuran font nilai
     local INFO_KEY_SIZE  = 11  -- ukuran font label kiri
 
     -- helper: buat satu baris label:value
@@ -2423,7 +2424,7 @@ function Library:CreateWindow(cfg)
     -- Spacer tipis antara nama/id dan pills
     New("Frame", {
         LayoutOrder = 3,
-        Size = UDim2.new(1, 0, 0, 4),
+        Size = UDim2.new(1, 0, 0, 3),
         BackgroundTransparency = 1,
         Parent = info,
     })
@@ -2432,15 +2433,17 @@ function Library:CreateWindow(cfg)
     local pillRow = New("Frame", {
         Name = "PillRow",
         LayoutOrder = 4,
-        Size = UDim2.new(1, 0, 0, 20),
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
         ClipsDescendants = false,
         Parent = info,
     })
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 4),
         VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
         SortOrder = Enum.SortOrder.LayoutOrder,
         Parent = pillRow,
     })
@@ -2450,14 +2453,14 @@ function Library:CreateWindow(cfg)
         local pill = New("Frame", {
             Name = "Pill_" .. order,
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, 18),
+            Size = UDim2.fromOffset(0, 16),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = fillColor,
             BackgroundTransparency = 0.72,
             ZIndex = 4,
             Parent = parent,
         })
-        Round(pill, 9)
+        Round(pill, 8)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
@@ -2466,10 +2469,23 @@ function Library:CreateWindow(cfg)
             Parent = pill,
         })
         New("UIPadding", {
-            PaddingLeft = UDim.new(0, 7),
-            PaddingRight = UDim.new(0, 7),
+            PaddingLeft  = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 6),
             Parent = pill,
         })
+        local lbl = Label({
+            Size = UDim2.new(1, 0, 1, 0),
+            Weight = "SemiBold",
+            Text = text,
+            TextSize = 9,
+            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            ZIndex = 5,
+            Parent = pill,
+        })
+        return pill, lbl
+    end
         local lbl = Label({
             Size = UDim2.new(1, 0, 1, 0),
             Weight = "SemiBold",
