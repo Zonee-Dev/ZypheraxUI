@@ -2363,13 +2363,18 @@ function Library:CreateWindow(cfg)
     local INFO_LABEL_COL = 46
     local INFO_KEY_SIZE  = 10
     local INFO_VAL_SIZE  = 13
-    local INFO_ROW_H     = 16  -- tinggi tiap baris
-    local INFO_ROW_GAP   = 2   -- jarak antar baris username/id
-    local PILL_H         = 15  -- tinggi pill
-    local PILL_GAP       = 5   -- jarak pills ke baris id
-    -- total tinggi blok konten: 2 baris + gap + pills
+    local INFO_ROW_H     = 16
+    local INFO_ROW_GAP   = 2
+    local PILL_H         = 14
+    local PILL_GAP       = 4
+    local PILL_FONT_SIZE = 9
+    -- ukuran fixed tiap pill (tidak pakai AutomaticSize agar tidak ada delay/glitch)
+    local PILL_W_PING    = 62
+    local PILL_W_FPS     = 50
+    local PILL_W_NOKEY   = 46
+    -- total tinggi blok konten
     local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP + PILL_H
-    -- posisi Y awal agar blok konten tepat di tengah bar
+    -- Y awal agar blok tepat di tengah bar
     local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2)
 
     -- helper: buat satu baris label:value
@@ -2440,13 +2445,12 @@ function Library:CreateWindow(cfg)
         Parent = pillRow,
     })
 
-    -- Helper: buat satu pill tag
-    local function MakeStatusPill(parent, order, text, fillColor)
+    -- Helper: buat satu pill tag dengan ukuran fixed (no AutomaticSize)
+    local function MakeStatusPill(parent, order, text, fillColor, pillW)
         local pill = New("Frame", {
             Name = "Pill_" .. order,
             LayoutOrder = order,
-            Size = UDim2.fromOffset(0, PILL_H),
-            AutomaticSize = Enum.AutomaticSize.X,
+            Size = UDim2.fromOffset(pillW, PILL_H),
             BackgroundColor3 = fillColor,
             BackgroundTransparency = 0.72,
             ZIndex = 4,
@@ -2460,16 +2464,11 @@ function Library:CreateWindow(cfg)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = pill,
         })
-        New("UIPadding", {
-            PaddingLeft  = UDim.new(0, 6),
-            PaddingRight = UDim.new(0, 6),
-            Parent = pill,
-        })
         local lbl = Label({
-            Size = UDim2.new(1, 0, 1, 0),
+            Size = UDim2.fromScale(1, 1),
             Weight = "SemiBold",
             Text = text,
-            TextSize = 9,
+            TextSize = PILL_FONT_SIZE,
             TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
             TextXAlignment = Enum.TextXAlignment.Center,
             TextYAlignment = Enum.TextYAlignment.Center,
@@ -2483,9 +2482,9 @@ function Library:CreateWindow(cfg)
     local PILL_FPS_COLOR   = Color3.fromRGB(96, 170, 255)    -- biru muda (fps)
     local PILL_NOKEY_COLOR = accents.top                      -- biru accent
 
-    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "Ping: —",    PILL_PING_COLOR)
-    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS: —",     PILL_FPS_COLOR)
-    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "No-Key",     PILL_NOKEY_COLOR)
+    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "Ping: —",  PILL_PING_COLOR,  PILL_W_PING)
+    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS: —",   PILL_FPS_COLOR,   PILL_W_FPS)
+    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "No-Key",   PILL_NOKEY_COLOR, PILL_W_NOKEY)
 
     -- Update Ping & FPS setiap detik via RunService
     local RunService = game:GetService("RunService")
@@ -2504,8 +2503,8 @@ function Library:CreateWindow(cfg)
             end
             local fps = _fpsCount > 0 and (_fpsAcc / _fpsCount) or 0
             _fpsAcc, _fpsCount = 0, 0
-            pillPingLabel.Text = "Ping: " .. tostring(math.floor(ping + 0.5)) .. "ms"
-            pillFpsLabel.Text  = "FPS: "  .. tostring(math.floor(fps  + 0.5))
+            pillPingLabel.Text = "Ping " .. tostring(math.floor(ping + 0.5)) .. "ms"
+            pillFpsLabel.Text  = "FPS "  .. tostring(math.floor(fps  + 0.5))
         end
     end))
 
