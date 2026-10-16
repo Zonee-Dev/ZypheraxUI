@@ -247,9 +247,10 @@ local function Fill(parent, name, radius, color, zIndex, inset)
     return fill
 end
 
--- Font built-in: Inter -> SourceSansPro -> Gotham enum
-local FONT_FAMILY = "rbxasset://fonts/families/Inter.json"
-local FONT_FALLBACK = "rbxasset://fonts/families/SourceSansPro.json"
+-- Font built-in: GothamSSm → Inter → SourceSansPro → Gotham enum
+local FONT_FAMILY = "rbxasset://fonts/families/GothamSSm.json"
+local FONT_FALLBACK = "rbxasset://fonts/families/Inter.json"
+local FONT_FALLBACK2 = "rbxasset://fonts/families/SourceSansPro.json"
 local FONT_BY_WEIGHT = {
     [Enum.FontWeight.Regular] = Enum.Font.Gotham,
     [Enum.FontWeight.Medium] = Enum.Font.GothamMedium,
@@ -270,8 +271,14 @@ local function MakeFont(weight)
     if ok2 and font2 then
         return font2
     end
-    local ok3, font3 = pcall(Font.fromEnum, FONT_BY_WEIGHT[weight] or Enum.Font.Gotham)
-    return ok3 and font3 or Font.fromEnum(Enum.Font.Gotham)
+    local ok3, font3 = pcall(function()
+        return Font.new(FONT_FALLBACK2, weight)
+    end)
+    if ok3 and font3 then
+        return font3
+    end
+    local ok4, font4 = pcall(Font.fromEnum, FONT_BY_WEIGHT[weight] or Enum.Font.GothamBold)
+    return ok4 and font4 or Font.fromEnum(Enum.Font.GothamBold)
 end
 
 local Typo = {
@@ -2360,18 +2367,18 @@ function Library:CreateWindow(cfg)
         Parent = bar,
     })
 
-    local INFO_LABEL_COL = 46
-    local INFO_KEY_SIZE  = 10
-    local INFO_VAL_SIZE  = 13
-    local INFO_ROW_H     = 16
+    local INFO_LABEL_COL = 52
+    local INFO_KEY_SIZE  = 11
+    local INFO_VAL_SIZE  = 15
+    local INFO_ROW_H     = 19
     local INFO_ROW_GAP   = 2
-    local PILL_H         = 14
-    local PILL_GAP       = 4
-    local PILL_FONT_SIZE = 9
-    -- ukuran fixed tiap pill (tidak pakai AutomaticSize agar tidak ada delay/glitch)
-    local PILL_W_PING    = 62
-    local PILL_W_FPS     = 50
-    local PILL_W_NOKEY   = 46
+    local PILL_H         = 18
+    local PILL_GAP       = 5
+    local PILL_FONT_SIZE = 11
+    -- ukuran fixed tiap pill — lebar pas konten, tidak terlalu lebar
+    local PILL_W_PING    = 72
+    local PILL_W_FPS     = 56
+    local PILL_W_NOKEY   = 60
     -- total tinggi blok konten
     local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP + PILL_H
     -- Y awal agar blok tepat di tengah bar
@@ -2388,8 +2395,8 @@ function Library:CreateWindow(cfg)
         })
         Label({
             Size = UDim2.fromOffset(INFO_LABEL_COL, INFO_ROW_H),
-            Weight = "Bold",
-            Text = keyText,
+            Weight = "SemiBold",
+            Text = string.upper(keyText),
             TextSize = INFO_KEY_SIZE,
             TextColor3 = Theme.TextTertiary,
             TextYAlignment = Enum.TextYAlignment.Center,
@@ -2397,8 +2404,8 @@ function Library:CreateWindow(cfg)
         })
         Label({
             Position = UDim2.fromOffset(INFO_LABEL_COL, 0),
-            Size = UDim2.fromOffset(7, INFO_ROW_H),
-            Weight = "Bold",
+            Size = UDim2.fromOffset(8, INFO_ROW_H),
+            Weight = "SemiBold",
             Text = ":",
             TextSize = INFO_KEY_SIZE,
             TextColor3 = Theme.TextTertiary,
@@ -2407,9 +2414,9 @@ function Library:CreateWindow(cfg)
             Parent = row,
         })
         local valLabel = Label({
-            Position = UDim2.fromOffset(INFO_LABEL_COL + 7, 0),
-            Size = UDim2.new(1, -(INFO_LABEL_COL + 7), 0, INFO_ROW_H),
-            Weight = "Medium",
+            Position = UDim2.fromOffset(INFO_LABEL_COL + 8, 0),
+            Size = UDim2.new(1, -(INFO_LABEL_COL + 8), 0, INFO_ROW_H),
+            Weight = "SemiBold",
             Text = valueText,
             TextSize = INFO_VAL_SIZE,
             TextColor3 = Theme.Text,
@@ -2438,7 +2445,7 @@ function Library:CreateWindow(cfg)
     })
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 4),
+        Padding = UDim.new(0, 5),
         VerticalAlignment = Enum.VerticalAlignment.Center,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -2451,8 +2458,8 @@ function Library:CreateWindow(cfg)
             Name = "Pill_" .. order,
             LayoutOrder = order,
             Size = UDim2.fromOffset(pillW, PILL_H),
-            BackgroundColor3 = fillColor,
-            BackgroundTransparency = 0.72,
+            BackgroundColor3 = fillColor:Lerp(Color3.new(0, 0, 0), 0.55),
+            BackgroundTransparency = 0,
             ZIndex = 4,
             Parent = parent,
         })
@@ -2460,16 +2467,16 @@ function Library:CreateWindow(cfg)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
-            Transparency = 0.35,
+            Transparency = 0.18,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = pill,
         })
         local lbl = Label({
             Size = UDim2.fromScale(1, 1),
-            Weight = "SemiBold",
+            Weight = "Bold",
             Text = text,
             TextSize = PILL_FONT_SIZE,
-            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.55),
+            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.80),
             TextXAlignment = Enum.TextXAlignment.Center,
             TextYAlignment = Enum.TextYAlignment.Center,
             ZIndex = 5,
@@ -2478,13 +2485,13 @@ function Library:CreateWindow(cfg)
         return pill, lbl
     end
 
-    local PILL_PING_COLOR  = Color3.fromRGB(80, 178, 128)    -- hijau (ping)
-    local PILL_FPS_COLOR   = Color3.fromRGB(96, 170, 255)    -- biru muda (fps)
-    local PILL_NOKEY_COLOR = accents.top                      -- biru accent
+    local PILL_PING_COLOR  = Color3.fromRGB(52, 211, 153)    -- emerald terang (ping)
+    local PILL_FPS_COLOR   = Color3.fromRGB(99, 179, 255)    -- sky blue terang (fps)
+    local PILL_NOKEY_COLOR = Color3.fromRGB(167, 139, 250)   -- violet (no-key)
 
-    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "Ping: —",  PILL_PING_COLOR,  PILL_W_PING)
-    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS: —",   PILL_FPS_COLOR,   PILL_W_FPS)
-    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "No-Key",   PILL_NOKEY_COLOR, PILL_W_NOKEY)
+    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "PING —ms",  PILL_PING_COLOR,  PILL_W_PING)
+    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS —",     PILL_FPS_COLOR,   PILL_W_FPS)
+    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "NO KEY",    PILL_NOKEY_COLOR, PILL_W_NOKEY)
 
     -- Update Ping & FPS setiap detik via RunService
     local RunService = game:GetService("RunService")
@@ -2503,7 +2510,7 @@ function Library:CreateWindow(cfg)
             end
             local fps = _fpsCount > 0 and (_fpsAcc / _fpsCount) or 0
             _fpsAcc, _fpsCount = 0, 0
-            pillPingLabel.Text = "Ping " .. tostring(math.floor(ping + 0.5)) .. "ms"
+            pillPingLabel.Text = "PING " .. tostring(math.floor(ping + 0.5)) .. "ms"
             pillFpsLabel.Text  = "FPS "  .. tostring(math.floor(fps  + 0.5))
         end
     end))
@@ -3175,7 +3182,7 @@ function Library:Unload()
         notifyGui:Destroy()
         notifyGui = nil
     end
-    Library.Unloaded = true
+    Library.Unloaded = true 
 end
 
 return Library
