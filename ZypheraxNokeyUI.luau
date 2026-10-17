@@ -3008,7 +3008,7 @@ function Library:CreateWindow(cfg)
             tabThumb.Position = goalPosition
             tabThumb.Size = goalSize
         end
-        layoutIndicator(animate)
+        -- indicator dihandle via CanvasPosition:Changed (saat scroll) dan task.defer di selectTab
     end
 
     -- Geser tabScroll agar tab aktif selalu terlihat di viewport strip.
@@ -3054,10 +3054,17 @@ function Library:CreateWindow(cfg)
                 })
             end
         end
+        -- layoutThumb dulu (posisi highlight tab aktif)
+        layoutThumb(animate)
+        -- scroll strip agar tab aktif terlihat — setelah thumb di-layout
         if selected and tabScroll then
             scrollTabIntoView(selected, animate)
         end
-        layoutThumb(animate)
+        -- indicator di-update setelah satu frame agar CanvasPosition sudah settled
+        -- (kalau pakai Tween, layoutIndicator akan ikut via CanvasPosition:Changed)
+        task.defer(function()
+            layoutIndicator(animate)
+        end)
         updatePageScroll()
         updateFades()
         applySearch()
@@ -3150,14 +3157,12 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        tabIndicator = New("TextButton", {
+        tabIndicator = New("Frame", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD, IND_Y),
             Size = UDim2.fromOffset(IND_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
             BackgroundTransparency = 0,
-            AutoButtonColor = false,
-            Text = "",
             ZIndex = 10,
             Visible = false,
             Parent = content,
@@ -3169,48 +3174,52 @@ function Library:CreateWindow(cfg)
             Parent = tabIndicator,
         })
 
-        -- Drag handler: seret tabIndicator kiri/kanan → scroll tabScroll
+        -- Drag indicator: geser kiri/kanan → scroll tabScroll.
+        -- Pakai Frame (bukan TextButton) agar tidak intercept Activated tab buttons.
+        -- Tracking delta dalam satuan LOKAL (bagi UIScale) agar konsisten dengan CanvasPosition.
         do
+            local UIS             = game:GetService("UserInputService")
             local dragging        = false
             local dragStartLocal  = 0
             local dragStartCanvas = 0
 
             tabIndicator.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    local sc         = math.max(uiScale.Scale, 0.01)
-                    dragging         = true
-                    dragStartLocal   = input.Position.X / sc   -- layar → lokal
-                    dragStartCanvas  = tabScroll.CanvasPosition.X
-                end
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+                local sc        = math.max(uiScale.Scale, 0.01)
+                dragging        = true
+                dragStartLocal  = input.Position.X / sc
+                dragStartCanvas = tabScroll.CanvasPosition.X
+                -- feedback hover saat mulai drag
+                Tween(tabIndicator, 0.08, { BackgroundTransparency = 0.35 })
             end)
 
-            game:GetService("UserInputService").InputChanged:Connect(function(input)
+            UIS.InputChanged:Connect(function(input)
                 if not dragging then return end
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
                 local sc        = math.max(uiScale.Scale, 0.01)
-                local curLocal  = input.Position.X / sc        -- layar → lokal
+                local curLocal  = input.Position.X / sc
                 local delta     = curLocal - dragStartLocal
                 local canvasW   = tabScroll.AbsoluteCanvasSize.X / sc
                 local viewW     = tabScroll.AbsoluteSize.X / sc
                 local maxScroll = math.max(canvasW - viewW, 0)
-                local newX      = math.clamp(dragStartCanvas + delta, 0, maxScroll)
-                tabScroll.CanvasPosition = Vector2.new(newX, 0)
+                tabScroll.CanvasPosition = Vector2.new(
+                    math.clamp(dragStartCanvas + delta, 0, maxScroll), 0
+                )
             end)
 
-            game:GetService("UserInputService").InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
-                    Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
-                end
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+                dragging = false
+                Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
             end)
 
-            -- Hover feedback
             tabIndicator.MouseEnter:Connect(function()
-                Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.30 })
+                if not dragging then
+                    Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.30 })
+                end
             end)
             tabIndicator.MouseLeave:Connect(function()
                 if not dragging then
@@ -3219,6 +3228,7 @@ function Library:CreateWindow(cfg)
             end)
         end
 
+        -- Setiap kali canvas tabScroll bergeser (scroll/drag/Tween), update posisi indicator
         tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             layoutIndicator(false)
         end)
