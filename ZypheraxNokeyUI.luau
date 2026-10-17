@@ -2946,27 +2946,35 @@ function Library:CreateWindow(cfg)
     end))
 
     local function layoutIndicator(animate)
-        if not (tabIndicator and tabScroll) then
-            return
-        end
-        if not selectedTab then
+        if not (tabIndicator and tabScroll) then return end
+
+        local viewW   = tabScroll.AbsoluteSize.X
+        local canvasW = tabScroll.AbsoluteCanvasSize.X
+
+        -- Jika semua tab muat di viewport (tidak perlu scroll), sembunyikan indicator
+        if canvasW <= viewW or viewW <= 0 then
             tabIndicator.Visible = false
             return
         end
-        local idx = (selectedTab.Order or 1) - 1
-        local tabCenter = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
-        local canvasX = tabScroll.CanvasPosition.X
-        local viewportW = tabScroll.AbsoluteSize.X
-        local viewCenter = tabCenter - canvasX
-        local visibleInd = viewCenter > 0 and viewCenter < viewportW
-        local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewportW - IND_W, 0))
-        tabIndicator.Visible = visibleInd
-        local goal = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + x, IND_Y)
+
+        tabIndicator.Visible = true
+
+        -- Thumb lebar proporsional: thumbW / viewW = viewW / canvasW
+        local thumbW = math.max(math.floor(viewW * viewW / canvasW), IND_H * 4)
+        -- Thumb posisi mengikuti scroll: thumbX / (viewW - thumbW) = canvasX / (canvasW - viewW)
+        local scrollRatio = tabScroll.CanvasPosition.X / math.max(canvasW - viewW, 1)
+        local thumbX = math.floor(scrollRatio * (viewW - thumbW))
+
+        local goalPos  = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + thumbX, IND_Y)
+        local goalSize = UDim2.fromOffset(thumbW, IND_H)
+
         if animate then
-            Tween(tabIndicator, 0.22, { Position = goal }, Enum.EasingStyle.Quint)
+            Tween(tabIndicator, 0.18, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
         else
-            tabIndicator.Position = goal
+            tabIndicator.Position = goalPos
+            tabIndicator.Size     = goalSize
         end
+        Round(tabIndicator, IND_H)
     end
 
     local function layoutThumb(animate)
@@ -2987,6 +2995,30 @@ function Library:CreateWindow(cfg)
         layoutIndicator(animate)
     end
 
+    -- Geser tabScroll agar tab aktif selalu terlihat di viewport strip
+    local function scrollTabIntoView(tab, animate)
+        if not tabScroll then return end
+        local idx = (tab.Order or 1) - 1
+        local tabLeft  = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        local tabRight = tabLeft + TAB_W
+        local viewW    = tabScroll.AbsoluteSize.X
+        local curX     = tabScroll.CanvasPosition.X
+        local canvasW  = tabScroll.AbsoluteCanvasSize.X
+        local targetX  = curX
+        if tabLeft < curX then
+            targetX = math.max(0, tabLeft - TRACK_PAD)
+        elseif tabRight > curX + viewW then
+            targetX = math.min(canvasW - viewW, tabRight - viewW + TRACK_PAD)
+        end
+        if targetX ~= curX then
+            if animate then
+                Tween(tabScroll, 0.22, { CanvasPosition = Vector2.new(targetX, 0) }, Enum.EasingStyle.Quint)
+            else
+                tabScroll.CanvasPosition = Vector2.new(targetX, 0)
+            end
+        end
+    end
+
     local function selectTab(selected, animate)
         selectedTab = selected
         currentSearchPage = selected and selected.Page
@@ -3002,6 +3034,9 @@ function Library:CreateWindow(cfg)
                     TextColor3 = active and Color3.new(1, 1, 1) or Theme.TextTertiary,
                 })
             end
+        end
+        if selected and tabScroll then
+            scrollTabIntoView(selected, animate)
         end
         layoutThumb(animate)
         updatePageScroll()
@@ -3096,11 +3131,15 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        tabIndicator = New("Frame", {
+        tabIndicator = New("TextButton", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD, IND_Y),
             Size = UDim2.fromOffset(IND_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundTransparency = 0,
+            AutoButtonColor = false,
+            Text = "",
+            ZIndex = 10,
             Visible = false,
             Parent = content,
         })
@@ -3110,6 +3149,55 @@ function Library:CreateWindow(cfg)
             Rotation = 0,
             Parent = tabIndicator,
         })
+
+        -- Drag handler: seret tabIndicator kiri/kanan → scroll tabScroll
+        do
+            local dragging    = false
+            local dragStartX  = 0
+            local dragStartCanvas = 0
+
+            tabIndicator.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging       = true
+                    dragStartX     = input.Position.X
+                    dragStartCanvas = tabScroll.CanvasPosition.X
+                end
+            end)
+
+            game:GetService("UserInputService").InputChanged:Connect(function(input)
+                if not dragging then return end
+                if input.UserInputType ~= Enum.UserInputType.MouseMovement
+                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+                local delta    = input.Position.X - dragStartX
+                -- ratio: berapa jauh canvas harus bergeser per pixel drag indicator
+                local viewW    = tabScroll.AbsoluteSize.X
+                local canvasW  = tabScroll.AbsoluteCanvasSize.X
+                local trackW   = math.max(viewW - IND_W, 1)
+                local scrollRange = math.max(canvasW - viewW, 0)
+                local ratio    = scrollRange / trackW
+                local newX     = math.clamp(dragStartCanvas + delta * ratio, 0, scrollRange)
+                tabScroll.CanvasPosition = Vector2.new(newX, 0)
+            end)
+
+            game:GetService("UserInputService").InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+
+            -- Hover: sedikit terangkan indicator saat mouse di atas
+            tabIndicator.MouseEnter:Connect(function()
+                Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.25 })
+            end)
+            tabIndicator.MouseLeave:Connect(function()
+                if not dragging then
+                    Tween(tabIndicator, 0.18, { BackgroundTransparency = 0 })
+                end
+            end)
+        end
 
         tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             layoutIndicator(false)
