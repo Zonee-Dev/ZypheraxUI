@@ -2883,9 +2883,9 @@ function Library:CreateWindow(cfg)
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local IND_H = 3
-    local IND_W = 44
-    local IND_Y = STRIP_INSET + STRIP_H + 3
+    local IND_H = 4          -- sama tebalnya dengan page scrollbar thumb
+    local IND_W = 28         -- lebar compact — tidak lebih lebar dari label tab
+    local IND_Y = STRIP_INSET + STRIP_H + 2
 
     -- Fade tepi atas/bawah area page ------------------------------------------
     -- Baris yang tergulir tidak lagi terpotong lurus di tepi area: ia memudar ke warna
@@ -2947,29 +2947,37 @@ function Library:CreateWindow(cfg)
 
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then return end
+        if not selectedTab then
+            tabIndicator.Visible = false
+            return
+        end
 
-        local viewW   = tabScroll.AbsoluteSize.X
-        local canvasW = tabScroll.AbsoluteCanvasSize.X
+        local viewW  = tabScroll.AbsoluteSize.X
+        local canvasX = tabScroll.CanvasPosition.X
 
-        -- Jika semua tab muat di viewport (tidak perlu scroll), sembunyikan indicator
-        if canvasW <= viewW or viewW <= 0 then
+        -- Posisi tengah tab aktif dalam canvas space
+        local idx       = (selectedTab.Order or 1) - 1
+        local tabCenter = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
+
+        -- Konversi ke posisi dalam viewport (relatif ke strip)
+        local viewCenter = tabCenter - canvasX
+
+        -- Sembunyikan jika tab aktif sepenuhnya di luar viewport
+        if viewCenter < 0 or viewCenter > viewW then
             tabIndicator.Visible = false
             return
         end
 
         tabIndicator.Visible = true
 
-        -- Thumb lebar proporsional: thumbW / viewW = viewW / canvasW
-        local thumbW = math.max(math.floor(viewW * viewW / canvasW), IND_H * 4)
-        -- Thumb posisi mengikuti scroll: thumbX / (viewW - thumbW) = canvasX / (canvasW - viewW)
-        local scrollRatio = tabScroll.CanvasPosition.X / math.max(canvasW - viewW, 1)
-        local thumbX = math.floor(scrollRatio * (viewW - thumbW))
+        -- Indicator selalu lebar IND_W, posisi di tengah tab aktif, diklem ke viewport
+        local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewW - IND_W, 0))
 
-        local goalPos  = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + thumbX, IND_Y)
-        local goalSize = UDim2.fromOffset(thumbW, IND_H)
+        local goalPos  = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + x, IND_Y)
+        local goalSize = UDim2.fromOffset(IND_W, IND_H)
 
         if animate then
-            Tween(tabIndicator, 0.18, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
+            Tween(tabIndicator, 0.20, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
         else
             tabIndicator.Position = goalPos
             tabIndicator.Size     = goalSize
@@ -3159,9 +3167,9 @@ function Library:CreateWindow(cfg)
             tabIndicator.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging       = true
-                    dragStartX     = input.Position.X
-                    dragStartCanvas = tabScroll.CanvasPosition.X
+                    dragging          = true
+                    dragStartX        = input.Position.X
+                    dragStartCanvas   = tabScroll.CanvasPosition.X
                 end
             end)
 
@@ -3170,14 +3178,12 @@ function Library:CreateWindow(cfg)
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 
-                local delta    = input.Position.X - dragStartX
-                -- ratio: berapa jauh canvas harus bergeser per pixel drag indicator
-                local viewW    = tabScroll.AbsoluteSize.X
-                local canvasW  = tabScroll.AbsoluteCanvasSize.X
-                local trackW   = math.max(viewW - IND_W, 1)
-                local scrollRange = math.max(canvasW - viewW, 0)
-                local ratio    = scrollRange / trackW
-                local newX     = math.clamp(dragStartCanvas + delta * ratio, 0, scrollRange)
+                local delta     = input.Position.X - dragStartX
+                local canvasW   = tabScroll.AbsoluteCanvasSize.X
+                local viewW     = tabScroll.AbsoluteSize.X
+                local maxScroll = math.max(canvasW - viewW, 0)
+                -- drag 1:1 — geser canvas sama besar dengan drag pixel
+                local newX = math.clamp(dragStartCanvas + delta, 0, maxScroll)
                 tabScroll.CanvasPosition = Vector2.new(newX, 0)
             end)
 
@@ -3185,12 +3191,13 @@ function Library:CreateWindow(cfg)
                 if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = false
+                    Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
                 end
             end)
 
-            -- Hover: sedikit terangkan indicator saat mouse di atas
+            -- Hover feedback
             tabIndicator.MouseEnter:Connect(function()
-                Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.25 })
+                Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.30 })
             end)
             tabIndicator.MouseLeave:Connect(function()
                 if not dragging then
