@@ -2369,7 +2369,7 @@ function Library:CreateWindow(cfg)
 
     -- Layout status bar — golden ratio centering
     local INFO_KEY_SIZE  = 11
-    local INFO_VAL_SIZE  = 12
+    local INFO_VAL_SIZE  = 10
     local INFO_ROW_H     = 14
     local INFO_ROW_GAP   = 1
     local INFO_KEY_W     = 62   -- diperlebar agar "USERNAME" muat
