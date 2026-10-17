@@ -2382,7 +2382,8 @@ function Library:CreateWindow(cfg)
     local PILL_GAP_H     = 4
 
     local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP_ROW + PILL_H
-    local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2)
+    -- geser 3px ke bawah agar username lebih mepet ke ID (visual balance)
+    local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2) + 3
 
     local function InfoRow(yPos, keyText, valueText)
         local row = New("Frame", {
@@ -2451,20 +2452,17 @@ function Library:CreateWindow(cfg)
         Parent = pillRow,
     })
 
-    -- Pill dengan AutomaticSize.X agar lebar pas dengan isi — padding kiri/kanan PILL_PAD_H
-    -- Layout dalam pill: [badgeLabel] [gap 3px] [valueLabel]
-    -- badgeLabel = teks pendek uppercase (mis "MS", "FPS", "KEY") berwarna accent
-    -- valueLabel = angka dinamis berwarna putih terang
-    local function MakeStatusPill(parent, order, badgeText, valueText, fillColor)
-        -- Pill frame: AutomaticSize.X — lebar ikut konten
+    -- Pill Ping / FPS: format "MS.20" — badge berwarna accent + titik + value putih
+    -- Pill No-Key: satu label tunggal "NO-KEY" Bold putih
+    local function MakeStatPill(parent, order, badgeText, valueText, fillColor)
         local pill = New("Frame", {
-            Name        = "Pill_" .. order,
-            LayoutOrder = order,
-            Size        = UDim2.fromOffset(0, PILL_H),   -- X diisi AutomaticSize
+            Name          = "Pill_" .. order,
+            LayoutOrder   = order,
+            Size          = UDim2.fromOffset(0, PILL_H),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundColor3 = fillColor:Lerp(Color3.new(0,0,0), 0.68),
-            ZIndex      = 4,
-            Parent      = parent,
+            ZIndex        = 4,
+            Parent        = parent,
         })
         Round(pill, PILL_H / 2)
         New("UIStroke", {
@@ -2474,8 +2472,6 @@ function Library:CreateWindow(cfg)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent      = pill,
         })
-
-        -- Container horizontal di dalam pill
         local inner = New("Frame", {
             Name              = "Inner",
             Size              = UDim2.fromOffset(0, PILL_H),
@@ -2487,44 +2483,80 @@ function Library:CreateWindow(cfg)
         New("UIListLayout", {
             FillDirection     = Enum.FillDirection.Horizontal,
             VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding           = UDim.new(0, 2),
+            Padding           = UDim.new(0, 0),   -- titik sudah jadi pemisah, tidak perlu gap
             SortOrder         = Enum.SortOrder.LayoutOrder,
             Parent            = inner,
         })
         New("UIPadding", {
-            PaddingLeft   = UDim.new(0, PILL_PAD_H),
-            PaddingRight  = UDim.new(0, PILL_PAD_H),
+            PaddingLeft  = UDim.new(0, PILL_PAD_H),
+            PaddingRight = UDim.new(0, PILL_PAD_H),
+            Parent       = inner,
+        })
+        -- "MS" / "FPS" berwarna accent
+        Label({
+            LayoutOrder   = 1,
+            Size          = UDim2.fromOffset(0, PILL_H),
+            AutomaticSize = Enum.AutomaticSize.X,
+            Weight        = "Bold",
+            Text          = badgeText .. ".",
+            TextSize      = PILL_FONT_SIZE,
+            TextColor3    = fillColor:Lerp(Color3.new(1,1,1), 0.60),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            ZIndex        = 6,
             Parent        = inner,
         })
-
-        -- Badge: label teks singkat uppercase berwarna accent (pengganti icon)
-        Label({
-            LayoutOrder = 1,
-            Size        = UDim2.fromOffset(0, PILL_H),
-            AutomaticSize = Enum.AutomaticSize.X,
-            Weight      = "Bold",
-            Text        = badgeText,
-            TextSize    = PILL_FONT_SIZE,
-            TextColor3  = fillColor:Lerp(Color3.new(1,1,1), 0.55),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Center,
-            ZIndex      = 6,
-            Parent      = inner,
-        })
-
-        -- Value: angka / teks dinamis, putih lebih terang
+        -- angka dinamis, putih Bold
         local lbl = Label({
-            LayoutOrder = 2,
-            Size        = UDim2.fromOffset(0, PILL_H),
+            LayoutOrder   = 2,
+            Size          = UDim2.fromOffset(0, PILL_H),
             AutomaticSize = Enum.AutomaticSize.X,
-            Weight      = "SemiBold",
-            Text        = valueText,
-            TextSize    = PILL_FONT_SIZE,
-            TextColor3  = Color3.fromRGB(230, 235, 245),
+            Weight        = "Bold",
+            Text          = valueText,
+            TextSize      = PILL_FONT_SIZE,
+            TextColor3    = Color3.fromRGB(240, 243, 250),
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
-            ZIndex      = 6,
-            Parent      = inner,
+            ZIndex        = 6,
+            Parent        = inner,
+        })
+        return pill, lbl
+    end
+
+    local function MakeNoKeyPill(parent, order, fillColor)
+        local pill = New("Frame", {
+            Name          = "Pill_" .. order,
+            LayoutOrder   = order,
+            Size          = UDim2.fromOffset(0, PILL_H),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundColor3 = fillColor:Lerp(Color3.new(0,0,0), 0.68),
+            ZIndex        = 4,
+            Parent        = parent,
+        })
+        Round(pill, PILL_H / 2)
+        New("UIStroke", {
+            Color       = fillColor,
+            Thickness   = 1,
+            Transparency = 0.25,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent      = pill,
+        })
+        New("UIPadding", {
+            PaddingLeft  = UDim.new(0, PILL_PAD_H),
+            PaddingRight = UDim.new(0, PILL_PAD_H),
+            Parent       = pill,
+        })
+        local lbl = Label({
+            Size          = UDim2.fromOffset(0, PILL_H),
+            AutomaticSize = Enum.AutomaticSize.X,
+            Weight        = "Bold",
+            Text          = "NO-KEY",
+            TextSize      = PILL_FONT_SIZE,
+            TextColor3    = Color3.fromRGB(240, 243, 250),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            ZIndex        = 5,
+            Parent        = pill,
         })
         return pill, lbl
     end
@@ -2533,9 +2565,9 @@ function Library:CreateWindow(cfg)
     local PILL_FPS_COLOR   = Color3.fromRGB(96, 165, 250)   -- sky blue
     local PILL_NOKEY_COLOR = Color3.fromRGB(167, 139, 250)  -- violet
 
-    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "MS",  "—",   PILL_PING_COLOR)
-    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS", "—",   PILL_FPS_COLOR)
-    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "KEY", "—",   PILL_NOKEY_COLOR)
+    local pillPing,  pillPingLabel  = MakeStatPill(pillRow,  1, "MS",  "—", PILL_PING_COLOR)
+    local pillFps,   pillFpsLabel   = MakeStatPill(pillRow,  2, "FPS", "—", PILL_FPS_COLOR)
+    local pillNoKey, pillNoKeyLabel = MakeNoKeyPill(pillRow, 3, PILL_NOKEY_COLOR)
 
     -- Update Ping & FPS setiap detik via RunService
     local RunService = game:GetService("RunService")
