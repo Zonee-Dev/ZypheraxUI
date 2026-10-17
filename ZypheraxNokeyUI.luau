@@ -2952,28 +2952,36 @@ function Library:CreateWindow(cfg)
             return
         end
 
-        local viewW  = tabScroll.AbsoluteSize.X
-        local canvasX = tabScroll.CanvasPosition.X
+        -- Semua perhitungan dalam satuan LOKAL (dibagi UIScale) agar konsisten
+        -- dengan CanvasPosition yang juga lokal.
+        local sc      = math.max(uiScale.Scale, 0.01)
+        local viewW   = tabScroll.AbsoluteSize.X / sc      -- lebar viewport strip (lokal)
+        local canvasX = tabScroll.CanvasPosition.X          -- sudah lokal
 
-        -- Posisi tengah tab aktif dalam canvas space
+        -- Posisi tengah tab aktif di dalam canvas (lokal)
         local idx       = (selectedTab.Order or 1) - 1
         local tabCenter = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
 
-        -- Konversi ke posisi dalam viewport (relatif ke strip)
+        -- Posisi tengah tab relatif terhadap viewport kiri
         local viewCenter = tabCenter - canvasX
 
         -- Sembunyikan jika tab aktif sepenuhnya di luar viewport
-        if viewCenter < 0 or viewCenter > viewW then
+        if viewCenter < -TAB_W / 2 or viewCenter > viewW + TAB_W / 2 then
             tabIndicator.Visible = false
             return
         end
 
         tabIndicator.Visible = true
 
-        -- Indicator selalu lebar IND_W, posisi di tengah tab aktif, diklem ke viewport
+        -- Indicator tepat di bawah tengah tab aktif, diklem agar tidak keluar viewport
+        -- Offset X relatif terhadap parent (content), bukan tabStrip:
+        -- tabStrip dimulai dari x = STRIP_INSET di dalam content
+        -- tabScroll dimulai dari x = SCROLL_PAD di dalam tabStrip
+        -- jadi origin = STRIP_INSET + SCROLL_PAD
+        local origin = STRIP_INSET + SCROLL_PAD
         local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewW - IND_W, 0))
 
-        local goalPos  = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD + x, IND_Y)
+        local goalPos  = UDim2.fromOffset(origin + x, IND_Y)
         local goalSize = UDim2.fromOffset(IND_W, IND_H)
 
         if animate then
@@ -3003,22 +3011,25 @@ function Library:CreateWindow(cfg)
         layoutIndicator(animate)
     end
 
-    -- Geser tabScroll agar tab aktif selalu terlihat di viewport strip
+    -- Geser tabScroll agar tab aktif selalu terlihat di viewport strip.
+    -- Semua dalam satuan LOKAL (AbsoluteSize / uiScale) agar konsisten dengan CanvasPosition.
     local function scrollTabIntoView(tab, animate)
         if not tabScroll then return end
-        local idx = (tab.Order or 1) - 1
+        local sc      = math.max(uiScale.Scale, 0.01)
+        local idx     = (tab.Order or 1) - 1
         local tabLeft  = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
         local tabRight = tabLeft + TAB_W
-        local viewW    = tabScroll.AbsoluteSize.X
-        local curX     = tabScroll.CanvasPosition.X
-        local canvasW  = tabScroll.AbsoluteCanvasSize.X
+        local viewW    = tabScroll.AbsoluteSize.X / sc          -- lokal
+        local canvasW  = tabScroll.AbsoluteCanvasSize.X / sc    -- lokal
+        local curX     = tabScroll.CanvasPosition.X             -- lokal
+        local maxScroll = math.max(canvasW - viewW, 0)
         local targetX  = curX
         if tabLeft < curX then
             targetX = math.max(0, tabLeft - TRACK_PAD)
         elseif tabRight > curX + viewW then
-            targetX = math.min(canvasW - viewW, tabRight - viewW + TRACK_PAD)
+            targetX = math.min(maxScroll, tabRight - viewW + TRACK_PAD)
         end
-        if targetX ~= curX then
+        if math.abs(targetX - curX) > 0.5 then
             if animate then
                 Tween(tabScroll, 0.22, { CanvasPosition = Vector2.new(targetX, 0) }, Enum.EasingStyle.Quint)
             else
@@ -3160,16 +3171,17 @@ function Library:CreateWindow(cfg)
 
         -- Drag handler: seret tabIndicator kiri/kanan → scroll tabScroll
         do
-            local dragging    = false
-            local dragStartX  = 0
+            local dragging        = false
+            local dragStartLocal  = 0
             local dragStartCanvas = 0
 
             tabIndicator.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging          = true
-                    dragStartX        = input.Position.X
-                    dragStartCanvas   = tabScroll.CanvasPosition.X
+                    local sc         = math.max(uiScale.Scale, 0.01)
+                    dragging         = true
+                    dragStartLocal   = input.Position.X / sc   -- layar → lokal
+                    dragStartCanvas  = tabScroll.CanvasPosition.X
                 end
             end)
 
@@ -3178,12 +3190,13 @@ function Library:CreateWindow(cfg)
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 
-                local delta     = input.Position.X - dragStartX
-                local canvasW   = tabScroll.AbsoluteCanvasSize.X
-                local viewW     = tabScroll.AbsoluteSize.X
+                local sc        = math.max(uiScale.Scale, 0.01)
+                local curLocal  = input.Position.X / sc        -- layar → lokal
+                local delta     = curLocal - dragStartLocal
+                local canvasW   = tabScroll.AbsoluteCanvasSize.X / sc
+                local viewW     = tabScroll.AbsoluteSize.X / sc
                 local maxScroll = math.max(canvasW - viewW, 0)
-                -- drag 1:1 — geser canvas sama besar dengan drag pixel
-                local newX = math.clamp(dragStartCanvas + delta, 0, maxScroll)
+                local newX      = math.clamp(dragStartCanvas + delta, 0, maxScroll)
                 tabScroll.CanvasPosition = Vector2.new(newX, 0)
             end)
 
