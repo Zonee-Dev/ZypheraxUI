@@ -2367,24 +2367,32 @@ function Library:CreateWindow(cfg)
         Parent = bar,
     })
 
-    local INFO_LABEL_COL = 52
-    local INFO_KEY_SIZE  = 11
-    local INFO_VAL_SIZE  = 15
-    local INFO_ROW_H     = 19
-    local INFO_ROW_GAP   = 2
-    local PILL_H         = 18
-    local PILL_GAP       = 5
-    local PILL_FONT_SIZE = 11
-    -- ukuran fixed tiap pill — lebar pas konten, tidak terlalu lebar
-    local PILL_W_PING    = 72
-    local PILL_W_FPS     = 56
-    local PILL_W_NOKEY   = 60
-    -- total tinggi blok konten
-    local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP + PILL_H
-    -- Y awal agar blok tepat di tengah bar
+    -- Golden ratio (φ ≈ 1.618) layout untuk status bar:
+    -- BAR_H=68 → konten ideal = 68/φ ≈ 42px → padding v = (68-42)/2 = 13px
+    -- Info block: 2 baris stacked (key caption 9px + value 12px, row h=14px, gap=2px)
+    -- Pills: icon + value, sangat compact (h=13px, font=9px)
+    local INFO_KEY_SIZE  = 9    -- caption label kecil sebagai metadata
+    local INFO_VAL_SIZE  = 12   -- value — readable tapi tidak dominan
+    local INFO_ROW_H     = 14   -- tinggi tiap baris info (key+value dalam 1 baris)
+    local INFO_ROW_GAP   = 3    -- jarak antara baris username dan id
+    local INFO_KEY_W     = 42   -- lebar kolom key label
+    local INFO_SEP_W     = 7    -- lebar kolom separator ":"
+
+    local PILL_H         = 13   -- pill sangat tipis — compact & modern
+    local PILL_GAP_ROW   = 4    -- jarak antara baris id dan baris pill
+    local PILL_FONT_SIZE = 9    -- pill text sangat kecil, icon-like
+    local PILL_GAP_H     = 4    -- gap horizontal antar pill
+    -- Lebar pill auto-compact: icon + angka saja (tidak pakai teks panjang)
+    local PILL_W_PING    = 44   -- "⚡ 00ms"
+    local PILL_W_FPS     = 38   -- "◈ 00"
+    local PILL_W_NOKEY   = 42   -- "◆ KEY"
+
+    -- Total tinggi blok (2 baris info + pill row)
+    local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP_ROW + PILL_H
+    -- Posisi Y awal agar blok tepat di tengah bar (golden center)
     local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2)
 
-    -- helper: buat satu baris label:value
+    -- helper: buat satu baris key  · value (compact, label kecil uppercase di kiri)
     local function InfoRow(yPos, keyText, valueText)
         local row = New("Frame", {
             Name = keyText .. "Row",
@@ -2393,9 +2401,10 @@ function Library:CreateWindow(cfg)
             BackgroundTransparency = 1,
             Parent = info,
         })
+        -- Key: Bold uppercase kecil — berfungsi sebagai caption/label
         Label({
-            Size = UDim2.fromOffset(INFO_LABEL_COL, INFO_ROW_H),
-            Weight = "SemiBold",
+            Size = UDim2.fromOffset(INFO_KEY_W, INFO_ROW_H),
+            Weight = "Bold",
             Text = string.upper(keyText),
             TextSize = INFO_KEY_SIZE,
             TextColor3 = Theme.TextTertiary,
@@ -2403,20 +2412,21 @@ function Library:CreateWindow(cfg)
             Parent = row,
         })
         Label({
-            Position = UDim2.fromOffset(INFO_LABEL_COL, 0),
-            Size = UDim2.fromOffset(8, INFO_ROW_H),
-            Weight = "SemiBold",
-            Text = ":",
+            Position = UDim2.fromOffset(INFO_KEY_W, 0),
+            Size = UDim2.fromOffset(INFO_SEP_W, INFO_ROW_H),
+            Weight = "Bold",
+            Text = "·",
             TextSize = INFO_KEY_SIZE,
-            TextColor3 = Theme.TextTertiary,
+            TextColor3 = Theme.TextTertiary:Lerp(Color3.new(0,0,0), 0.25),
             TextXAlignment = Enum.TextXAlignment.Center,
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = row,
         })
+        -- Value: Medium, ukuran pas — tidak dominan tapi terbaca jelas
         local valLabel = Label({
-            Position = UDim2.fromOffset(INFO_LABEL_COL + 8, 0),
-            Size = UDim2.new(1, -(INFO_LABEL_COL + 8), 0, INFO_ROW_H),
-            Weight = "SemiBold",
+            Position = UDim2.fromOffset(INFO_KEY_W + INFO_SEP_W, 0),
+            Size = UDim2.new(1, -(INFO_KEY_W + INFO_SEP_W), 0, INFO_ROW_H),
+            Weight = "Medium",
             Text = valueText,
             TextSize = INFO_VAL_SIZE,
             TextColor3 = Theme.Text,
@@ -2429,12 +2439,12 @@ function Library:CreateWindow(cfg)
 
     local yUsername = BLOCK_Y
     local yId       = BLOCK_Y + INFO_ROW_H + INFO_ROW_GAP
-    local yPills    = yId + INFO_ROW_H + PILL_GAP
+    local yPills    = yId + INFO_ROW_H + PILL_GAP_ROW
 
-    local usernameLabel = InfoRow(yUsername, "Username", cfg.Username or LocalPlayer.Name)
-    local subLabel      = InfoRow(yId,       "ID",       tostring(cfg.UserId or LocalPlayer.UserId))
+    local usernameLabel = InfoRow(yUsername, "User", cfg.Username or LocalPlayer.Name)
+    local subLabel      = InfoRow(yId,       "ID",   tostring(cfg.UserId or LocalPlayer.UserId))
 
-    -- Pill row: posisi absolut tepat di bawah baris ID
+    -- Pill row: sangat compact, di bawah baris ID
     local pillRow = New("Frame", {
         Name = "PillRow",
         Position = UDim2.fromOffset(0, yPills),
@@ -2445,20 +2455,21 @@ function Library:CreateWindow(cfg)
     })
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, PILL_GAP_H),
         VerticalAlignment = Enum.VerticalAlignment.Center,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         SortOrder = Enum.SortOrder.LayoutOrder,
         Parent = pillRow,
     })
 
-    -- Helper: buat satu pill tag dengan ukuran fixed (no AutomaticSize)
-    local function MakeStatusPill(parent, order, text, fillColor, pillW)
+    -- Pill: solid dark bg, border berwarna tipis, icon + angka
+    -- fillColor = warna aksen pill (border + teks)
+    local function MakeStatusPill(parent, order, icon, value, fillColor, pillW)
         local pill = New("Frame", {
             Name = "Pill_" .. order,
             LayoutOrder = order,
             Size = UDim2.fromOffset(pillW, PILL_H),
-            BackgroundColor3 = fillColor:Lerp(Color3.new(0, 0, 0), 0.55),
+            BackgroundColor3 = fillColor:Lerp(Color3.new(0, 0, 0), 0.72),
             BackgroundTransparency = 0,
             ZIndex = 4,
             Parent = parent,
@@ -2467,17 +2478,30 @@ function Library:CreateWindow(cfg)
         New("UIStroke", {
             Color = fillColor,
             Thickness = 1,
-            Transparency = 0.18,
+            Transparency = 0.30,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = pill,
         })
+        -- icon dot kecil di kiri
+        local dot = New("Frame", {
+            Name = "Dot",
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.new(0, 5, 0.5, 0),
+            Size = UDim2.fromOffset(4, 4),
+            BackgroundColor3 = fillColor,
+            BackgroundTransparency = 0.15,
+            ZIndex = 5,
+            Parent = pill,
+        })
+        Round(dot, 2)
         local lbl = Label({
-            Size = UDim2.fromScale(1, 1),
+            Position = UDim2.fromOffset(11, 0),
+            Size = UDim2.new(1, -13, 1, 0),
             Weight = "Bold",
-            Text = text,
+            Text = value,
             TextSize = PILL_FONT_SIZE,
-            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.80),
-            TextXAlignment = Enum.TextXAlignment.Center,
+            TextColor3 = fillColor:Lerp(Color3.new(1, 1, 1), 0.72),
+            TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
             ZIndex = 5,
             Parent = pill,
@@ -2485,13 +2509,13 @@ function Library:CreateWindow(cfg)
         return pill, lbl
     end
 
-    local PILL_PING_COLOR  = Color3.fromRGB(52, 211, 153)    -- emerald terang (ping)
-    local PILL_FPS_COLOR   = Color3.fromRGB(99, 179, 255)    -- sky blue terang (fps)
-    local PILL_NOKEY_COLOR = Color3.fromRGB(167, 139, 250)   -- violet (no-key)
+    local PILL_PING_COLOR  = Color3.fromRGB(52, 211, 153)   -- emerald
+    local PILL_FPS_COLOR   = Color3.fromRGB(96, 165, 250)   -- sky blue
+    local PILL_NOKEY_COLOR = Color3.fromRGB(167, 139, 250)  -- violet
 
-    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "PING —ms",  PILL_PING_COLOR,  PILL_W_PING)
-    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "FPS —",     PILL_FPS_COLOR,   PILL_W_FPS)
-    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "NO KEY",    PILL_NOKEY_COLOR, PILL_W_NOKEY)
+    local pillPing,  pillPingLabel  = MakeStatusPill(pillRow, 1, "⚡", "—ms",   PILL_PING_COLOR,  PILL_W_PING)
+    local pillFps,   pillFpsLabel   = MakeStatusPill(pillRow, 2, "◈", "—",      PILL_FPS_COLOR,   PILL_W_FPS)
+    local pillNoKey, pillNoKeyLabel = MakeStatusPill(pillRow, 3, "◆", "KEY",    PILL_NOKEY_COLOR, PILL_W_NOKEY)
 
     -- Update Ping & FPS setiap detik via RunService
     local RunService = game:GetService("RunService")
@@ -2510,8 +2534,8 @@ function Library:CreateWindow(cfg)
             end
             local fps = _fpsCount > 0 and (_fpsAcc / _fpsCount) or 0
             _fpsAcc, _fpsCount = 0, 0
-            pillPingLabel.Text = "PING " .. tostring(math.floor(ping + 0.5)) .. "ms"
-            pillFpsLabel.Text  = "FPS "  .. tostring(math.floor(fps  + 0.5))
+            pillPingLabel.Text = tostring(math.floor(ping + 0.5)) .. "ms"
+            pillFpsLabel.Text  = tostring(math.floor(fps  + 0.5))
         end
     end))
 
