@@ -2371,7 +2371,7 @@ function Library:CreateWindow(cfg)
     local INFO_KEY_SIZE  = 9
     local INFO_VAL_SIZE  = 12
     local INFO_ROW_H     = 14
-    local INFO_ROW_GAP   = 3
+    local INFO_ROW_GAP   = 1
     local INFO_KEY_W     = 38
     local INFO_SEP_W     = 6
 
@@ -2382,8 +2382,7 @@ function Library:CreateWindow(cfg)
     local PILL_GAP_H     = 4
 
     local BLOCK_H = INFO_ROW_H + INFO_ROW_GAP + INFO_ROW_H + PILL_GAP_ROW + PILL_H
-    -- geser 3px ke bawah agar username lebih mepet ke ID (visual balance)
-    local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2) + 3
+    local BLOCK_Y = math.floor((BAR_H - BLOCK_H) / 2)
 
     local function InfoRow(yPos, keyText, valueText)
         local row = New("Frame", {
