@@ -2369,7 +2369,7 @@ function Library:CreateWindow(cfg)
 
     -- Layout status bar — golden ratio centering
     local INFO_KEY_SIZE  = 11
-    local INFO_VAL_SIZE  = 11
+    local INFO_VAL_SIZE  = 10
     local INFO_ROW_H     = 14
     local INFO_ROW_GAP   = 1
     local INFO_KEY_W     = 62   -- diperlebar agar "USERNAME" muat
@@ -2415,7 +2415,7 @@ function Library:CreateWindow(cfg)
         local valLabel = Label({
             Position = UDim2.fromOffset(INFO_KEY_W + INFO_SEP_W, 0),
             Size = UDim2.new(1, -(INFO_KEY_W + INFO_SEP_W), 0, INFO_ROW_H),
-            Weight = "Medium",
+            Weight = "SemiBold",
             Text = valueText,
             TextSize = INFO_VAL_SIZE,
             TextColor3 = Theme.Text,
