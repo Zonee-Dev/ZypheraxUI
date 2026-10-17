@@ -2368,12 +2368,12 @@ function Library:CreateWindow(cfg)
     })
 
     -- Layout status bar — golden ratio centering
-    local INFO_KEY_SIZE  = 9
+    local INFO_KEY_SIZE  = 11
     local INFO_VAL_SIZE  = 12
     local INFO_ROW_H     = 14
     local INFO_ROW_GAP   = 1
-    local INFO_KEY_W     = 38
-    local INFO_SEP_W     = 6
+    local INFO_KEY_W     = 62   -- diperlebar agar "USERNAME" muat
+    local INFO_SEP_W     = 7
 
     local PILL_H         = 14   -- cukup tinggi agar teks tidak sesak
     local PILL_GAP_ROW   = 4
@@ -2394,7 +2394,7 @@ function Library:CreateWindow(cfg)
         })
         Label({
             Size = UDim2.fromOffset(INFO_KEY_W, INFO_ROW_H),
-            Weight = "Bold",
+            Weight = "SemiBold",
             Text = string.upper(keyText),
             TextSize = INFO_KEY_SIZE,
             TextColor3 = Theme.TextTertiary,
@@ -2405,7 +2405,7 @@ function Library:CreateWindow(cfg)
             Position = UDim2.fromOffset(INFO_KEY_W, 0),
             Size = UDim2.fromOffset(INFO_SEP_W, INFO_ROW_H),
             Weight = "Regular",
-            Text = "·",
+            Text = ":",
             TextSize = INFO_KEY_SIZE,
             TextColor3 = Theme.TextTertiary,
             TextXAlignment = Enum.TextXAlignment.Center,
@@ -2430,7 +2430,7 @@ function Library:CreateWindow(cfg)
     local yId       = BLOCK_Y + INFO_ROW_H + INFO_ROW_GAP
     local yPills    = yId + INFO_ROW_H + PILL_GAP_ROW
 
-    local usernameLabel = InfoRow(yUsername, "User", cfg.Username or LocalPlayer.Name)
+    local usernameLabel = InfoRow(yUsername, "Username", cfg.Username or LocalPlayer.Name)
     local subLabel      = InfoRow(yId,       "ID",   tostring(cfg.UserId or LocalPlayer.UserId))
 
     -- Pill row
