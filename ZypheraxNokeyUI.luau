@@ -2941,22 +2941,30 @@ function Library:CreateWindow(cfg)
         task.defer(updateFades)
     end))
 
+    -- tabThumb parent-nya tabStrip (bukan tabScroll) supaya UICorner tidak di-clip
+    -- saat scroll. Posisi dihitung manual: offset canvas dikurangi setiap frame.
     local function layoutThumb(animate)
-        if not (tabThumb and selectedTab) then
-            return
-        end
-        local idx = (selectedTab.Order or 1) - 1
-        local x = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        local goalPosition = UDim2.fromOffset(x, 0)
-        local goalSize = UDim2.new(0, TAB_W, 1, 0)
-        tabThumb.Visible = true
+        if not (tabThumb and tabScroll and selectedTab) then return end
+        local idx      = (selectedTab.Order or 1) - 1
+        local canvasX  = tabScroll.CanvasPosition.X   -- sudah satuan lokal
+        -- posisi tab dalam canvas, lalu dikonversi ke koordinat tabStrip
+        local tabX     = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        local stripX   = SCROLL_PAD + tabX - canvasX
+        -- clamp agar thumb tidak keluar batas strip (strip lebar = strip.AbsoluteSize.X / sc)
+        local sc       = math.max(uiScale.Scale, 0.01)
+        local stripW   = tabStrip and (tabStrip.AbsoluteSize.X / sc) or (TAB_W + SCROLL_PAD * 2)
+        local minX     = SCROLL_PAD
+        local maxX     = stripW - SCROLL_PAD - TAB_W
+        local clampedX = math.clamp(stripX, minX, maxX)
+        local goalPosition = UDim2.fromOffset(clampedX, SCROLL_PAD)
+        local goalSize     = UDim2.new(0, TAB_W, 0, STRIP_H - SCROLL_PAD * 2)
+        tabThumb.Visible   = true
         if animate then
             Tween(tabThumb, 0.22, { Position = goalPosition, Size = goalSize }, Enum.EasingStyle.Quint)
         else
             tabThumb.Position = goalPosition
-            tabThumb.Size = goalSize
+            tabThumb.Size     = goalSize
         end
-        -- indicator dihandle via CanvasPosition:Changed (saat scroll) dan task.defer di selectTab
     end
 
     -- Geser tabScroll agar tab aktif selalu terlihat di viewport strip.
@@ -3054,19 +3062,22 @@ function Library:CreateWindow(cfg)
             ScrollBarThickness = 0,
             CanvasSize = UDim2.new(),
             AutomaticCanvasSize = Enum.AutomaticSize.X,
+            ZIndex = 3,
             Parent = tabStrip,
         })
         HideScrollBar(tabScroll)
 
-        -- tabThumb: gradient highlight tab aktif. ZIndex=1 agar di bawah tabTrack.
+        -- tabThumb: gradient highlight tab aktif.
+        -- Parent = tabStrip (bukan tabScroll) agar UICorner tidak di-clip canvas scroll.
+        -- Posisi dihitung manual di layoutThumb setiap kali CanvasPosition berubah.
         tabThumb = New("Frame", {
             Name = "Thumb",
-            Position = UDim2.fromOffset(TRACK_PAD, 0),
-            Size = UDim2.new(0, TAB_W, 1, 0),
+            Position = UDim2.fromOffset(SCROLL_PAD, SCROLL_PAD),
+            Size = UDim2.new(0, TAB_W, 0, STRIP_H - SCROLL_PAD * 2),
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
-            ZIndex = 1,
-            Parent = tabScroll,
+            ZIndex = 2,
+            Parent = tabStrip,
         })
         Round(tabThumb, (STRIP_H - SCROLL_PAD * 2) / 2)
         New("UIGradient", {
@@ -3120,6 +3131,11 @@ function Library:CreateWindow(cfg)
 
         -- scrollbar mengikuti area page (di bawah tab strip), bukan seluruh content
         pageScrollTrack.Parent = pagesHolder
+
+        -- Setiap kali canvas scroll bergeser, reposisi tabThumb agar roundednya tetap terlihat
+        tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            layoutThumb(false)
+        end)
 
         updateFades()  -- area page bergeser ke bawah strip
     end
