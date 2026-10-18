@@ -2945,6 +2945,9 @@ function Library:CreateWindow(cfg)
         task.defer(updateFades)
     end))
 
+    -- Track tween indicator aktif agar bisa dibatalkan sebelum yang baru dimulai
+    local _indicatorTween = nil
+
     local function layoutIndicator(animate)
         if not (tabIndicator and tabScroll) then return end
         if not selectedTab then
@@ -2952,20 +2955,15 @@ function Library:CreateWindow(cfg)
             return
         end
 
-        -- Semua perhitungan dalam satuan LOKAL (dibagi UIScale) agar konsisten
-        -- dengan CanvasPosition yang juga lokal.
         local sc      = math.max(uiScale.Scale, 0.01)
-        local viewW   = tabScroll.AbsoluteSize.X / sc      -- lebar viewport strip (lokal)
-        local canvasX = tabScroll.CanvasPosition.X          -- sudah lokal
+        local viewW   = tabScroll.AbsoluteSize.X / sc   -- viewport lebar (lokal)
+        local canvasX = tabScroll.CanvasPosition.X       -- sudah lokal
 
-        -- Posisi tengah tab aktif di dalam canvas (lokal)
-        local idx       = (selectedTab.Order or 1) - 1
-        local tabCenter = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
+        local idx        = (selectedTab.Order or 1) - 1
+        local tabCenter  = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
+        local viewCenter = tabCenter - canvasX           -- posisi center tab dalam viewport
 
-        -- Posisi tengah tab relatif terhadap viewport kiri
-        local viewCenter = tabCenter - canvasX
-
-        -- Sembunyikan jika tab aktif sepenuhnya di luar viewport
+        -- Sembunyikan jika tab benar-benar di luar viewport
         if viewCenter < -TAB_W / 2 or viewCenter > viewW + TAB_W / 2 then
             tabIndicator.Visible = false
             return
@@ -2973,19 +2971,28 @@ function Library:CreateWindow(cfg)
 
         tabIndicator.Visible = true
 
-        -- Indicator tepat di bawah tengah tab aktif, diklem agar tidak keluar viewport
-        -- Offset X relatif terhadap parent (content), bukan tabStrip:
-        -- tabStrip dimulai dari x = STRIP_INSET di dalam content
-        -- tabScroll dimulai dari x = SCROLL_PAD di dalam tabStrip
-        -- jadi origin = STRIP_INSET + SCROLL_PAD
+        -- origin = posisi kiri tabScroll dalam koordinat content
+        -- tabStrip.X = STRIP_INSET, tabScroll.X = SCROLL_PAD di dalam tabStrip
         local origin = STRIP_INSET + SCROLL_PAD
-        local x = math.clamp(viewCenter - IND_W / 2, 0, math.max(viewW - IND_W, 0))
 
-        local goalPos  = UDim2.fromOffset(origin + x, IND_Y)
+        -- Posisi center tab dalam koordinat content
+        local centerInContent = origin + viewCenter
+        -- Clamp agar indicator tidak keluar batas kiri/kanan viewport
+        local leftBound  = origin
+        local rightBound = origin + math.max(viewW - IND_W, 0)
+        local goalX = math.clamp(centerInContent - IND_W / 2, leftBound, rightBound)
+
+        local goalPos  = UDim2.fromOffset(goalX, IND_Y)
         local goalSize = UDim2.fromOffset(IND_W, IND_H)
 
+        -- Batalkan tween sebelumnya agar tidak bentrok
+        if _indicatorTween then
+            _indicatorTween:Cancel()
+            _indicatorTween = nil
+        end
+
         if animate then
-            Tween(tabIndicator, 0.20, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
+            _indicatorTween = Tween(tabIndicator, 0.20, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
         else
             tabIndicator.Position = goalPos
             tabIndicator.Size     = goalSize
@@ -3060,10 +3067,10 @@ function Library:CreateWindow(cfg)
         if selected and tabScroll then
             scrollTabIntoView(selected, animate)
         end
-        -- indicator di-update setelah satu frame agar CanvasPosition sudah settled
-        -- (kalau pakai Tween, layoutIndicator akan ikut via CanvasPosition:Changed)
+        -- Selalu false di task.defer: CanvasPosition:Changed yang handle smooth update
+        -- selama Tween scroll. task.defer hanya untuk kasus tab sudah visible (tidak perlu scroll).
         task.defer(function()
-            layoutIndicator(animate)
+            layoutIndicator(false)
         end)
         updatePageScroll()
         updateFades()
@@ -3177,20 +3184,21 @@ function Library:CreateWindow(cfg)
             Parent = tabIndicator,
         })
 
-        -- Drag indicator: geser kiri/kanan → scroll tabScroll.
-        -- Pakai TextButton + Active=true agar input tidak tembus ke dragFrame (window drag).
-        -- Tracking delta dalam satuan LOKAL (bagi UIScale) agar konsisten dengan CanvasPosition.
+        -- Drag indicator: geser kiri/kanan → scroll tabScroll proporsional.
+        -- TextButton + Active=true agar input tidak tembus ke dragFrame (window drag).
+        -- sc dikunci saat drag dimulai agar konsisten meski UIScale berubah.
         do
             local UIS             = game:GetService("UserInputService")
             local dragging        = false
             local dragStartLocal  = 0
             local dragStartCanvas = 0
+            local dragSc          = 1   -- scale dikunci saat mousedown
 
-            -- MouseButton1Down lebih reliable dari InputBegan untuk TextButton drag
+            -- MouseButton1Down: x,y adalah screen coordinates (absolut)
             tabIndicator.MouseButton1Down:Connect(function(x, _y)
-                local sc        = math.max(uiScale.Scale, 0.01)
+                dragSc          = math.max(uiScale.Scale, 0.01)
                 dragging        = true
-                dragStartLocal  = x / sc
+                dragStartLocal  = x / dragSc          -- screen → lokal, konsisten dengan InputChanged
                 dragStartCanvas = tabScroll.CanvasPosition.X
                 Tween(tabIndicator, 0.08, { BackgroundTransparency = 0.35 })
             end)
@@ -3199,14 +3207,21 @@ function Library:CreateWindow(cfg)
                 if not dragging then return end
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                local sc        = math.max(uiScale.Scale, 0.01)
-                local curLocal  = input.Position.X / sc
+
+                local curLocal  = input.Position.X / dragSc   -- gunakan dragSc yang dikunci
                 local delta     = curLocal - dragStartLocal
-                local canvasW   = tabScroll.AbsoluteCanvasSize.X / sc
-                local viewW     = tabScroll.AbsoluteSize.X / sc
+
+                local canvasW   = tabScroll.AbsoluteCanvasSize.X / dragSc
+                local viewW     = tabScroll.AbsoluteSize.X / dragSc
                 local maxScroll = math.max(canvasW - viewW, 0)
+
+                -- Drag proporsional: 1px indicator = (maxScroll / indicatorRange) px canvas
+                -- Ini agar indicator bisa drag dari ujung ke ujung sama seperti canvas
+                local indicatorRange = math.max(viewW - IND_W, 1)
+                local ratio = maxScroll / indicatorRange
+
                 tabScroll.CanvasPosition = Vector2.new(
-                    math.clamp(dragStartCanvas + delta, 0, maxScroll), 0
+                    math.clamp(dragStartCanvas + delta * ratio, 0, maxScroll), 0
                 )
             end)
 
@@ -3214,13 +3229,11 @@ function Library:CreateWindow(cfg)
                 dragging = false
                 Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
             end)
-            -- safety: jika mouse dilepas di luar indicator
+            -- Safety: mouse dilepas di luar indicator
             UIS.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    if dragging then
-                        dragging = false
-                        Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
-                    end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then
+                    dragging = false
+                    Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
                 end
             end)
 
