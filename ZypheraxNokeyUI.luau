@@ -2942,21 +2942,25 @@ function Library:CreateWindow(cfg)
     end))
 
     -- tabThumb parent-nya tabStrip (bukan tabScroll) supaya UICorner tidak di-clip
-    -- saat scroll. Posisi dihitung manual: offset canvas dikurangi setiap frame.
+    -- saat scroll. Posisi X dihitung dari posisi tab dalam canvas dikurangi CanvasPosition.
+    -- Tidak ada clamp — jika tab aktif keluar viewport, thumb disembunyikan.
     local function layoutThumb(animate)
         if not (tabThumb and tabScroll and selectedTab) then return end
-        local idx      = (selectedTab.Order or 1) - 1
-        local canvasX  = tabScroll.CanvasPosition.X   -- sudah satuan lokal
-        -- posisi tab dalam canvas, lalu dikonversi ke koordinat tabStrip
-        local tabX     = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        local stripX   = SCROLL_PAD + tabX - canvasX
-        -- clamp agar thumb tidak keluar batas strip (strip lebar = strip.AbsoluteSize.X / sc)
-        local sc       = math.max(uiScale.Scale, 0.01)
-        local stripW   = tabStrip and (tabStrip.AbsoluteSize.X / sc) or (TAB_W + SCROLL_PAD * 2)
-        local minX     = SCROLL_PAD
-        local maxX     = stripW - SCROLL_PAD - TAB_W
-        local clampedX = math.clamp(stripX, minX, maxX)
-        local goalPosition = UDim2.fromOffset(clampedX, SCROLL_PAD)
+        local idx     = (selectedTab.Order or 1) - 1
+        local canvasX = tabScroll.CanvasPosition.X
+        local tabX    = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        -- koordinat dalam tabStrip (tabScroll mulai dari SCROLL_PAD di dalam tabStrip)
+        local stripX  = SCROLL_PAD + tabX - canvasX
+
+        -- Sembunyikan jika tab aktif sudah keluar viewport strip
+        local sc      = math.max(uiScale.Scale, 0.01)
+        local viewW   = tabScroll.AbsoluteSize.X / sc
+        if stripX + TAB_W <= SCROLL_PAD or stripX >= SCROLL_PAD + viewW then
+            tabThumb.Visible = false
+            return
+        end
+
+        local goalPosition = UDim2.fromOffset(stripX, SCROLL_PAD)
         local goalSize     = UDim2.new(0, TAB_W, 0, STRIP_H - SCROLL_PAD * 2)
         tabThumb.Visible   = true
         if animate then
