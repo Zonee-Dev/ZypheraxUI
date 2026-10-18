@@ -3157,12 +3157,15 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        tabIndicator = New("Frame", {
+        tabIndicator = New("TextButton", {
             Name = "ScrollIndicator",
             Position = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD, IND_Y),
             Size = UDim2.fromOffset(IND_W, IND_H),
             BackgroundColor3 = Color3.new(1, 1, 1),
             BackgroundTransparency = 0,
+            AutoButtonColor = false,
+            Active = true,
+            Text = "",
             ZIndex = 10,
             Visible = false,
             Parent = content,
@@ -3175,7 +3178,7 @@ function Library:CreateWindow(cfg)
         })
 
         -- Drag indicator: geser kiri/kanan → scroll tabScroll.
-        -- Pakai Frame (bukan TextButton) agar tidak intercept Activated tab buttons.
+        -- Pakai TextButton + Active=true agar input tidak tembus ke dragFrame (window drag).
         -- Tracking delta dalam satuan LOKAL (bagi UIScale) agar konsisten dengan CanvasPosition.
         do
             local UIS             = game:GetService("UserInputService")
@@ -3183,14 +3186,12 @@ function Library:CreateWindow(cfg)
             local dragStartLocal  = 0
             local dragStartCanvas = 0
 
-            tabIndicator.InputBegan:Connect(function(input)
-                if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            -- MouseButton1Down lebih reliable dari InputBegan untuk TextButton drag
+            tabIndicator.MouseButton1Down:Connect(function(x, _y)
                 local sc        = math.max(uiScale.Scale, 0.01)
                 dragging        = true
-                dragStartLocal  = input.Position.X / sc
+                dragStartLocal  = x / sc
                 dragStartCanvas = tabScroll.CanvasPosition.X
-                -- feedback hover saat mulai drag
                 Tween(tabIndicator, 0.08, { BackgroundTransparency = 0.35 })
             end)
 
@@ -3209,11 +3210,18 @@ function Library:CreateWindow(cfg)
                 )
             end)
 
-            UIS.InputEnded:Connect(function(input)
-                if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            tabIndicator.MouseButton1Up:Connect(function()
                 dragging = false
                 Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
+            end)
+            -- safety: jika mouse dilepas di luar indicator
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if dragging then
+                        dragging = false
+                        Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
+                    end
+                end
             end)
 
             tabIndicator.MouseEnter:Connect(function()
