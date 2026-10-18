@@ -3058,14 +3058,7 @@ function Library:CreateWindow(cfg)
         })
         HideScrollBar(tabScroll)
 
-        tabTrack = New("Frame", {
-            Name = "Track",
-            Size = UDim2.new(0, 0, 1, 0),
-            AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundTransparency = 1,
-            Parent = tabScroll,
-        })
-
+        -- tabThumb: gradient highlight tab aktif. ZIndex=1 agar di bawah tabTrack.
         tabThumb = New("Frame", {
             Name = "Thumb",
             Position = UDim2.fromOffset(TRACK_PAD, 0),
@@ -3073,7 +3066,7 @@ function Library:CreateWindow(cfg)
             BackgroundColor3 = Color3.new(1, 1, 1),
             Visible = false,
             ZIndex = 1,
-            Parent = tabTrack,
+            Parent = tabScroll,
         })
         Round(tabThumb, (STRIP_H - SCROLL_PAD * 2) / 2)
         New("UIGradient", {
@@ -3083,6 +3076,16 @@ function Library:CreateWindow(cfg)
             ),
             Rotation = 0,
             Parent = tabThumb,
+        })
+
+        -- tabTrack: container tab buttons. ZIndex=2 → selalu di atas tabThumb.
+        tabTrack = New("Frame", {
+            Name = "Track",
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            ZIndex = 2,
+            Parent = tabScroll,
         })
 
         btnRow = New("Frame", {
@@ -3128,7 +3131,7 @@ function Library:CreateWindow(cfg)
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false,
-            ZIndex = 2,
+            ZIndex = 4,
             Parent = btnRow,
         })
         local buttonLabel = Label({
@@ -3140,6 +3143,7 @@ function Library:CreateWindow(cfg)
             TextColor3 = tab.Active and Color3.new(1, 1, 1) or Theme.TextTertiary,
             TextXAlignment = Enum.TextXAlignment.Center,
             TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 4,
             Parent = button,
         })
         tab.Button = button
