@@ -3026,11 +3026,18 @@ function Library:CreateWindow(cfg)
         local idx     = (tab.Order or 1) - 1
         local tabLeft  = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
         local tabRight = tabLeft + TAB_W
-        local viewW    = tabScroll.AbsoluteSize.X / sc          -- lokal
-        local canvasW  = tabScroll.AbsoluteCanvasSize.X / sc    -- lokal
-        local curX     = tabScroll.CanvasPosition.X             -- lokal
+        local viewW    = tabScroll.AbsoluteSize.X / sc
+
+        -- AbsoluteCanvasSize bisa = 0 saat AutomaticSize belum dirender (frame pertama).
+        -- Fallback: hitung manual dari total tab yang ada.
+        local rawCanvasW = tabScroll.AbsoluteCanvasSize.X / sc
+        local tabCount   = #tabs
+        local calcCanvasW = TRACK_PAD * 2 + tabCount * TAB_W + math.max(tabCount - 1, 0) * STRIP_GAP
+        local canvasW    = math.max(rawCanvasW, calcCanvasW)
+
+        local curX      = tabScroll.CanvasPosition.X
         local maxScroll = math.max(canvasW - viewW, 0)
-        local targetX  = curX
+        local targetX   = curX
         if tabLeft < curX then
             targetX = math.max(0, tabLeft - TRACK_PAD)
         elseif tabRight > curX + viewW then
@@ -3061,14 +3068,13 @@ function Library:CreateWindow(cfg)
                 })
             end
         end
-        -- layoutThumb dulu (posisi highlight tab aktif)
         layoutThumb(animate)
-        -- scroll strip agar tab aktif terlihat — setelah thumb di-layout
         if selected and tabScroll then
             scrollTabIntoView(selected, animate)
         end
-        -- Selalu false di task.defer: CanvasPosition:Changed yang handle smooth update
-        -- selama Tween scroll. task.defer hanya untuk kasus tab sudah visible (tidak perlu scroll).
+        -- layoutIndicator(false) setelah 1 frame — untuk kasus tab sudah di viewport.
+        -- Untuk kasus yang butuh scroll, CanvasPosition:Changed akan terus fire
+        -- selama Tween dan memanggil layoutIndicator(false) setiap frame.
         task.defer(function()
             layoutIndicator(false)
         end)
@@ -3184,21 +3190,22 @@ function Library:CreateWindow(cfg)
             Parent = tabIndicator,
         })
 
-        -- Drag indicator: geser kiri/kanan → scroll tabScroll proporsional.
-        -- TextButton + Active=true agar input tidak tembus ke dragFrame (window drag).
-        -- sc dikunci saat drag dimulai agar konsisten meski UIScale berubah.
+        -- Drag indicator → scroll tabScroll.
+        -- InputBegan pada tabIndicator digunakan (bukan MouseButton1Down) karena
+        -- MouseButton1Down(x,y) memberikan koordinat RELATIF ke button, bukan screen —
+        -- tidak konsisten dengan InputChanged yang pakai screen coordinate.
+        -- Active=true pada TextButton mencegah input tembus ke dragFrame.
         do
             local UIS             = game:GetService("UserInputService")
             local dragging        = false
-            local dragStartLocal  = 0
-            local dragStartCanvas = 0
-            local dragSc          = 1   -- scale dikunci saat mousedown
+            local dragStartX      = 0   -- screen X saat mulai drag
+            local dragStartCanvas = 0   -- CanvasPosition.X saat mulai drag
 
-            -- MouseButton1Down: x,y adalah screen coordinates (absolut)
-            tabIndicator.MouseButton1Down:Connect(function(x, _y)
-                dragSc          = math.max(uiScale.Scale, 0.01)
+            tabIndicator.InputBegan:Connect(function(input)
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then return end
                 dragging        = true
-                dragStartLocal  = x / dragSc          -- screen → lokal, konsisten dengan InputChanged
+                dragStartX      = input.Position.X          -- screen pixel (absolut)
                 dragStartCanvas = tabScroll.CanvasPosition.X
                 Tween(tabIndicator, 0.08, { BackgroundTransparency = 0.35 })
             end)
@@ -3208,32 +3215,30 @@ function Library:CreateWindow(cfg)
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 
-                local curLocal  = input.Position.X / dragSc   -- gunakan dragSc yang dikunci
-                local delta     = curLocal - dragStartLocal
+                local sc           = math.max(uiScale.Scale, 0.01)
+                -- delta dalam screen pixel, dibagi sc → satuan lokal (sama dengan CanvasPosition)
+                local deltaLocal   = (input.Position.X - dragStartX) / sc
 
-                local canvasW   = tabScroll.AbsoluteCanvasSize.X / dragSc
-                local viewW     = tabScroll.AbsoluteSize.X / dragSc
-                local maxScroll = math.max(canvasW - viewW, 0)
+                local canvasW      = tabScroll.AbsoluteCanvasSize.X / sc
+                local viewW        = tabScroll.AbsoluteSize.X / sc
+                local maxScroll    = math.max(canvasW - viewW, 0)
 
-                -- Drag proporsional: 1px indicator = (maxScroll / indicatorRange) px canvas
-                -- Ini agar indicator bisa drag dari ujung ke ujung sama seperti canvas
+                -- proporsional: seberapa jauh indicator bisa bergerak vs seberapa jauh canvas
                 local indicatorRange = math.max(viewW - IND_W, 1)
-                local ratio = maxScroll / indicatorRange
+                local ratio          = maxScroll / indicatorRange
 
                 tabScroll.CanvasPosition = Vector2.new(
-                    math.clamp(dragStartCanvas + delta * ratio, 0, maxScroll), 0
+                    math.clamp(dragStartCanvas + deltaLocal * ratio, 0, maxScroll), 0
                 )
             end)
 
-            tabIndicator.MouseButton1Up:Connect(function()
-                dragging = false
-                Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
-            end)
-            -- Safety: mouse dilepas di luar indicator
             UIS.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then
-                    dragging = false
-                    Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                    if dragging then
+                        dragging = false
+                        Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
+                    end
                 end
             end)
 
