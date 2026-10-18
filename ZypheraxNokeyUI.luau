@@ -2941,20 +2941,25 @@ function Library:CreateWindow(cfg)
         task.defer(updateFades)
     end))
 
-    -- tabThumb parent-nya tabStrip (bukan tabScroll) supaya UICorner tidak di-clip
-    -- saat scroll. Posisi X dihitung dari posisi tab dalam canvas dikurangi CanvasPosition.
-    -- Tidak ada clamp — jika tab aktif keluar viewport, thumb disembunyikan.
+    -- tabThumb parent-nya tabStrip (bukan tabScroll) supaya UICorner tidak di-clip.
+    -- Posisi dihitung sekali saat tab dipilih, berdasarkan CanvasPosition saat itu.
+    -- TIDAK ada live update saat scroll — thumb hanya update saat selectedTab berubah.
     local function layoutThumb(animate)
-        if not (tabThumb and tabScroll and selectedTab) then return end
-        local idx     = (selectedTab.Order or 1) - 1
+        if not (tabThumb and tabScroll and selectedTab) then
+            if tabThumb then tabThumb.Visible = false end
+            return
+        end
+        local idx    = (selectedTab.Order or 1) - 1
+        local tabX   = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
+        -- tabScroll.Position.X.Offset = SCROLL_PAD di dalam tabStrip
+        -- tabX adalah posisi dalam canvas tabScroll
+        -- Konversi ke koordinat tabStrip: tambah SCROLL_PAD, kurangi CanvasPosition
         local canvasX = tabScroll.CanvasPosition.X
-        local tabX    = TRACK_PAD + idx * (TAB_W + STRIP_GAP)
-        -- koordinat dalam tabStrip (tabScroll mulai dari SCROLL_PAD di dalam tabStrip)
         local stripX  = SCROLL_PAD + tabX - canvasX
 
-        -- Sembunyikan jika tab aktif sudah keluar viewport strip
-        local sc      = math.max(uiScale.Scale, 0.01)
-        local viewW   = tabScroll.AbsoluteSize.X / sc
+        -- Sembunyikan jika tab sama sekali tidak terlihat di viewport
+        local sc    = math.max(uiScale.Scale, 0.01)
+        local viewW = tabScroll.AbsoluteSize.X / sc
         if stripX + TAB_W <= SCROLL_PAD or stripX >= SCROLL_PAD + viewW then
             tabThumb.Visible = false
             return
@@ -3021,9 +3026,22 @@ function Library:CreateWindow(cfg)
                 })
             end
         end
-        layoutThumb(animate)
+        -- scroll dulu, lalu letakkan thumb setelah canvas settle
         if selected and tabScroll then
             scrollTabIntoView(selected, animate)
+        end
+        -- 1 frame defer: CanvasPosition sudah diset (non-animate) atau Tween sudah mulai (animate).
+        -- Untuk non-animate, ini sudah cukup karena CanvasPosition langsung diset.
+        -- Untuk animate (Tween 0.22s), kita tunggu sampai Tween selesai lalu update thumb sekali lagi.
+        task.defer(function()
+            layoutThumb(false)
+        end)
+        if animate then
+            task.delay(0.24, function()
+                if selectedTab == selected then
+                    layoutThumb(false)
+                end
+            end)
         end
         updatePageScroll()
         updateFades()
@@ -3135,11 +3153,6 @@ function Library:CreateWindow(cfg)
 
         -- scrollbar mengikuti area page (di bawah tab strip), bukan seluruh content
         pageScrollTrack.Parent = pagesHolder
-
-        -- Setiap kali canvas scroll bergeser, reposisi tabThumb agar roundednya tetap terlihat
-        tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            layoutThumb(false)
-        end)
 
         updateFades()  -- area page bergeser ke bawah strip
     end
