@@ -2875,7 +2875,7 @@ function Library:CreateWindow(cfg)
     -- Tabs ----------------------------------------------------------------
 
     local tabs = {}
-    local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder, tabIndicator
+    local tabStrip, tabThumb, tabScroll, tabTrack, btnRow, pagesHolder
 
     local STRIP_H = 30
     local STRIP_INSET = 1  -- tab strip digeser masuk 1px supaya UIStroke (digambar di luar tepi) tidak terpotong clip `content`
@@ -2883,10 +2883,6 @@ function Library:CreateWindow(cfg)
     local STRIP_GAP = 3
     local TRACK_PAD = 2
     local TAB_W = 92
-    local IND_H = 4          -- sama tebalnya dengan page scrollbar thumb
-    local IND_W = 28         -- lebar compact — tidak lebih lebar dari label tab
-    local IND_Y = STRIP_INSET + STRIP_H + 2
-
     -- Fade tepi atas/bawah area page ------------------------------------------
     -- Baris yang tergulir tidak lagi terpotong lurus di tepi area: ia memudar ke warna
     -- panel. Fade atas hanya muncul kalau ada konten di atas, fade bawah kalau ada di
@@ -2944,61 +2940,6 @@ function Library:CreateWindow(cfg)
     table.insert(connections, uiScale:GetPropertyChangedSignal("Scale"):Connect(function()
         task.defer(updateFades)
     end))
-
-    -- Track tween indicator aktif agar bisa dibatalkan sebelum yang baru dimulai
-    local _indicatorTween = nil
-
-    local function layoutIndicator(animate)
-        if not (tabIndicator and tabScroll) then return end
-        if not selectedTab then
-            tabIndicator.Visible = false
-            return
-        end
-
-        local sc      = math.max(uiScale.Scale, 0.01)
-        local viewW   = tabScroll.AbsoluteSize.X / sc   -- viewport lebar (lokal)
-        local canvasX = tabScroll.CanvasPosition.X       -- sudah lokal
-
-        local idx        = (selectedTab.Order or 1) - 1
-        local tabCenter  = TRACK_PAD + idx * (TAB_W + STRIP_GAP) + TAB_W / 2
-        local viewCenter = tabCenter - canvasX           -- posisi center tab dalam viewport
-
-        -- Sembunyikan jika tab benar-benar di luar viewport
-        if viewCenter < -TAB_W / 2 or viewCenter > viewW + TAB_W / 2 then
-            tabIndicator.Visible = false
-            return
-        end
-
-        tabIndicator.Visible = true
-
-        -- origin = posisi kiri tabScroll dalam koordinat content
-        -- tabStrip.X = STRIP_INSET, tabScroll.X = SCROLL_PAD di dalam tabStrip
-        local origin = STRIP_INSET + SCROLL_PAD
-
-        -- Posisi center tab dalam koordinat content
-        local centerInContent = origin + viewCenter
-        -- Clamp agar indicator tidak keluar batas kiri/kanan viewport
-        local leftBound  = origin
-        local rightBound = origin + math.max(viewW - IND_W, 0)
-        local goalX = math.clamp(centerInContent - IND_W / 2, leftBound, rightBound)
-
-        local goalPos  = UDim2.fromOffset(goalX, IND_Y)
-        local goalSize = UDim2.fromOffset(IND_W, IND_H)
-
-        -- Batalkan tween sebelumnya agar tidak bentrok
-        if _indicatorTween then
-            _indicatorTween:Cancel()
-            _indicatorTween = nil
-        end
-
-        if animate then
-            _indicatorTween = Tween(tabIndicator, 0.20, { Position = goalPos, Size = goalSize }, Enum.EasingStyle.Quint)
-        else
-            tabIndicator.Position = goalPos
-            tabIndicator.Size     = goalSize
-        end
-        Round(tabIndicator, IND_H)
-    end
 
     local function layoutThumb(animate)
         if not (tabThumb and selectedTab) then
@@ -3072,12 +3013,6 @@ function Library:CreateWindow(cfg)
         if selected and tabScroll then
             scrollTabIntoView(selected, animate)
         end
-        -- layoutIndicator(false) setelah 1 frame — untuk kasus tab sudah di viewport.
-        -- Untuk kasus yang butuh scroll, CanvasPosition:Changed akan terus fire
-        -- selama Tween dan memanggil layoutIndicator(false) setiap frame.
-        task.defer(function()
-            layoutIndicator(false)
-        end)
         updatePageScroll()
         updateFades()
         applySearch()
@@ -3170,95 +3105,6 @@ function Library:CreateWindow(cfg)
             Parent = btnRow,
         })
 
-        tabIndicator = New("TextButton", {
-            Name = "ScrollIndicator",
-            Position = UDim2.fromOffset(STRIP_INSET + SCROLL_PAD, IND_Y),
-            Size = UDim2.fromOffset(IND_W, IND_H),
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BackgroundTransparency = 0,
-            AutoButtonColor = false,
-            Active = true,
-            Text = "",
-            ZIndex = 10,
-            Visible = false,
-            Parent = content,
-        })
-        Round(tabIndicator, IND_H)
-        New("UIGradient", {
-            Color = ColorSequence.new(accents.top, accents.mid),
-            Rotation = 0,
-            Parent = tabIndicator,
-        })
-
-        -- Drag indicator → scroll tabScroll.
-        -- InputBegan pada tabIndicator digunakan (bukan MouseButton1Down) karena
-        -- MouseButton1Down(x,y) memberikan koordinat RELATIF ke button, bukan screen —
-        -- tidak konsisten dengan InputChanged yang pakai screen coordinate.
-        -- Active=true pada TextButton mencegah input tembus ke dragFrame.
-        do
-            local UIS             = game:GetService("UserInputService")
-            local dragging        = false
-            local dragStartX      = 0   -- screen X saat mulai drag
-            local dragStartCanvas = 0   -- CanvasPosition.X saat mulai drag
-
-            tabIndicator.InputBegan:Connect(function(input)
-                if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                dragging        = true
-                dragStartX      = input.Position.X          -- screen pixel (absolut)
-                dragStartCanvas = tabScroll.CanvasPosition.X
-                Tween(tabIndicator, 0.08, { BackgroundTransparency = 0.35 })
-            end)
-
-            UIS.InputChanged:Connect(function(input)
-                if not dragging then return end
-                if input.UserInputType ~= Enum.UserInputType.MouseMovement
-                and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-                local sc           = math.max(uiScale.Scale, 0.01)
-                -- delta dalam screen pixel, dibagi sc → satuan lokal (sama dengan CanvasPosition)
-                local deltaLocal   = (input.Position.X - dragStartX) / sc
-
-                local canvasW      = tabScroll.AbsoluteCanvasSize.X / sc
-                local viewW        = tabScroll.AbsoluteSize.X / sc
-                local maxScroll    = math.max(canvasW - viewW, 0)
-
-                -- proporsional: seberapa jauh indicator bisa bergerak vs seberapa jauh canvas
-                local indicatorRange = math.max(viewW - IND_W, 1)
-                local ratio          = maxScroll / indicatorRange
-
-                tabScroll.CanvasPosition = Vector2.new(
-                    math.clamp(dragStartCanvas + deltaLocal * ratio, 0, maxScroll), 0
-                )
-            end)
-
-            UIS.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    if dragging then
-                        dragging = false
-                        Tween(tabIndicator, 0.15, { BackgroundTransparency = 0 })
-                    end
-                end
-            end)
-
-            tabIndicator.MouseEnter:Connect(function()
-                if not dragging then
-                    Tween(tabIndicator, 0.12, { BackgroundTransparency = 0.30 })
-                end
-            end)
-            tabIndicator.MouseLeave:Connect(function()
-                if not dragging then
-                    Tween(tabIndicator, 0.18, { BackgroundTransparency = 0 })
-                end
-            end)
-        end
-
-        -- Setiap kali canvas tabScroll bergeser (scroll/drag/Tween), update posisi indicator
-        tabScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            layoutIndicator(false)
-        end)
-
         pagesHolder = New("Frame", {
             Name = "Pages",
             Position = UDim2.fromOffset(0, STRIP_INSET + STRIP_H + 10),
@@ -3272,7 +3118,6 @@ function Library:CreateWindow(cfg)
         -- scrollbar mengikuti area page (di bawah tab strip), bukan seluruh content
         pageScrollTrack.Parent = pagesHolder
 
-        layoutIndicator(false)
         updateFades()  -- area page bergeser ke bawah strip
     end
 
